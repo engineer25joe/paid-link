@@ -1,0 +1,5 @@
+import { StyleSheet, Text, View } from 'react-native';
+import { AppButton } from '../components/AppButton';
+import { PageHeading, Screen } from '../components/Screen';
+export function HomeScreen({ navigation }) { return <Screen><View style={styles.brand}><Text style={styles.brandText}>Paid Link<Text style={styles.period}>.</Text></Text></View><View style={styles.hero}><PageHeading eyebrow="A better way to share what you know" title={<>Knowledge deserves a <Text style={styles.accent}>link.</Text></>} description="Discover practical learning resources from creators who care about what they make."/><AppButton title="Get started  ↗" onPress={() => navigation.navigate('Register')} /><View style={styles.gap}/><AppButton title="Log in" secondary onPress={() => navigation.navigate('Login')} /></View></Screen>; }
+const styles = StyleSheet.create({ brand: { paddingVertical: 10 }, brandText: { fontSize: 21, fontWeight: '800', color: '#172729' }, period: { color: '#75a944' }, hero: { flex: 1, justifyContent: 'center', paddingBottom: 40 }, accent: { color: '#75a944', fontFamily: 'serif', fontStyle: 'italic' }, gap: { height: 12 } });

@@ -1,0 +1,2 @@
+export class ApiError extends Error { constructor(message, status, data) { super(message); this.name = 'ApiError'; this.status = status; this.data = data; } }
+export function getApiErrorMessage(data, fallback = 'The request could not be completed.') { if (typeof data === 'string') return data; if (data && typeof data === 'object') { if (typeof data.detail === 'string') return data.detail; if (typeof data.error === 'string') return data.error; const first = Object.values(data).flat()[0]; if (typeof first === 'string') return first; } return fallback; }

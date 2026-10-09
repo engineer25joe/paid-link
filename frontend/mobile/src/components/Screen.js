@@ -1,0 +1,5 @@
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+export function Screen({ children }) { return <SafeAreaView style={styles.safe}><View style={styles.content}>{children}</View></SafeAreaView>; }
+export function LoadingScreen() { return <Screen><View style={styles.loading}><ActivityIndicator color="#5f913b" /><Text style={styles.muted}>Loading your workspace…</Text></View></Screen>; }
+export function PageHeading({ eyebrow, title, description }) { return <View style={styles.heading}><Text style={styles.eyebrow}>{eyebrow.toUpperCase()}</Text><Text style={styles.title}>{title}</Text>{description ? <Text style={styles.muted}>{description}</Text> : null}</View>; }
+const styles = StyleSheet.create({ safe: { flex: 1, backgroundColor: '#f7f8f5' }, content: { flex: 1, padding: 24 }, loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }, heading: { marginBottom: 28, gap: 9 }, eyebrow: { color: '#728078', fontSize: 11, letterSpacing: 1.5, fontWeight: '700' }, title: { color: '#182326', fontSize: 34, letterSpacing: -1, fontWeight: '600' }, muted: { color: '#687774', fontSize: 15, lineHeight: 23 } });

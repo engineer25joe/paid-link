@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "Paid Link",
+    "slug": "paid-link",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "paidlink",
+    "plugins": [
+      "expo-secure-store",
+      "expo-status-bar"
+    ],
+    "android": {
+      "package": "com.paidlink.mobile"
+    },
+    "ios": {
+      "bundleIdentifier": "com.paidlink.mobile"
+    }
+  }
+}

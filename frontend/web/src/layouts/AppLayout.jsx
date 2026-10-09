@@ -1,0 +1,3 @@
+import { Link, Outlet } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext.jsx';
+export function AppLayout() { const { user, logout } = useAuth(); return <div className="app-shell"><header className="topbar"><Link className="brand" to="/">Paid Link<span>.</span></Link><nav><Link to="/">Explore</Link>{user ? <><Link to={`/${user.role}`}>Workspace</Link><button className="text-button" onClick={logout}>Sign out</button></> : <><Link to="/login">Log in</Link><Link className="nav-cta" to="/register">Get started</Link></>}</nav></header><main><Outlet /></main><footer>© {new Date().getFullYear()} Paid Link <span>•</span> Knowledge deserves a link.</footer></div>; }
