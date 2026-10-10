@@ -1,4 +1,20 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { dashboardPath } from '../auth/navigation.js';
-export function AppLayout() { const { user, logout } = useAuth(); const navigate = useNavigate(); async function signOut() { await logout(); navigate('/', { replace: true }); } return <div className="app-shell"><header className="topbar"><Link className="brand" to={user ? dashboardPath(user.role) : '/'}>Paid Link<span>.</span></Link><nav><Link to="/explore">Explore</Link>{user ? <><Link to="/workspace">Workspace</Link><button className="text-button" onClick={signOut}>Sign out</button></> : <><Link to="/login">Log in</Link><Link className="nav-cta" to="/register">Get started</Link></>}</nav></header><main><Outlet /></main><footer>© {new Date().getFullYear()} Paid Link <span>•</span> Knowledge deserves a link.</footer></div>; }
+import { Brand } from '../components/Brand.jsx';
+import { ProfileMenu } from '../components/ProfileMenu.jsx';
+
+// Shared shell provides consistent public, learner, creator, and admin navigation.
+export function AppLayout() {
+  const { user, viewMode } = useAuth();
+  return <div className="app-shell">
+    <header className="topbar"><NavLink className="brand-link" to="/" aria-label="Go to home"><Brand/></NavLink>
+      <nav className="main-nav" aria-label="Main navigation"><NavLink to="/" end>Home</NavLink><NavLink to="/explore">Explore</NavLink>{user && <NavLink to="/library">My Library</NavLink>}
+        {(viewMode === 'creator' || user?.role === 'creator') && <><NavLink to="/creator/content">My Content</NavLink><NavLink to="/creator/earnings">Earnings</NavLink></>}
+        {user?.role === 'admin' && viewMode === 'admin' && <NavLink to="/admin">Admin</NavLink>}
+      </nav>
+      <div className="topbar-account">{user ? <><span className="balance-pill">{user.credits ?? '—'} <small>credits</small></span><ProfileMenu/></> : <><NavLink className="login-link" to="/login">Log in</NavLink><NavLink className="button button-primary nav-cta" to="/register">Join free</NavLink></>}</div>
+    </header>
+    <main id="main-content"><Outlet/></main>
+    <footer className="site-footer"><Brand compact/><span>Practical learning, shared by people who know their craft.</span><NavLink to="/explore">Explore resources</NavLink></footer>
+  </div>;
+}

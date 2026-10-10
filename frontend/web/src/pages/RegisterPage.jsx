@@ -2,5 +2,19 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { getApiErrorMessage } from '../api/errors.js';
-import { dashboardPath } from '../auth/navigation.js';
-export function RegisterPage() { const { register } = useAuth(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const navigate = useNavigate(); async function submit(event) { event.preventDefault(); setBusy(true); setError(''); const data = Object.fromEntries(new FormData(event.currentTarget)); try { const user = await register(data); navigate(dashboardPath(user.role), { replace: true }); } catch (e) { setError(getApiErrorMessage(e.data, e.message)); } finally { setBusy(false); } } return <section className="form-card"><div className="eyebrow">Get started</div><h1>Create an account</h1><p>Your role starts as learner and is managed by the platform.</p><form onSubmit={submit}><label>Username<input name="username" autoComplete="username" required /></label><label>Email<input name="email" type="email" autoComplete="email" required /></label><label>Phone number<input name="phone_number" type="tel" autoComplete="tel" required /></label><label>Password<input name="password" type="password" autoComplete="new-password" minLength="8" required /></label>{error && <div className="form-error" role="alert">{error}</div>}<button className="button full" disabled={busy}>{busy ? 'Creating account…' : 'Create account'} <span>↗</span></button></form><div className="form-foot">Already have an account? <Link to="/login">Log in</Link></div></section>; }
+
+// Registration uses the existing learner-only endpoint and enters the shared marketplace after success.
+export function RegisterPage() {
+  const { register } = useAuth();
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const navigate = useNavigate();
+  async function submit(event) {
+    event.preventDefault(); setBusy(true); setError('');
+    const details = Object.fromEntries(new FormData(event.currentTarget));
+    try { await register(details); navigate('/', { replace: true }); }
+    catch (failure) { setError(getApiErrorMessage(failure.data, failure.message)); }
+    finally { setBusy(false); }
+  }
+  return <section className="auth-page"><div className="auth-aside"><p className="eyebrow">Start learning</p><h1>Curiosity gets<br/>you places.</h1><p>Explore practical resources built to help you learn something that matters.</p></div><section className="form-card"><p className="eyebrow">Join the community</p><h2>Create your account</h2><p>New accounts begin with the learner role.</p><form onSubmit={submit}><label>Username<input name="username" autoComplete="username" required/></label><label>Email<input name="email" type="email" autoComplete="email" required/></label><label>Phone number<input name="phone_number" type="tel" autoComplete="tel" required/></label><label>Password<input name="password" type="password" autoComplete="new-password" minLength="8" required/></label>{error && <p className="form-error" role="alert">{error}</p>}<button className="button button-primary full" disabled={busy}>{busy ? 'Creating account…' : 'Create account'} <span aria-hidden="true">↗</span></button></form><div className="form-foot">Already have an account? <Link to="/login">Log in</Link></div></section></section>;
+}

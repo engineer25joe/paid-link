@@ -1,33 +1,25 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { api } from '../api/client.js';
-import { API_PATHS } from '../api/config.js';
-import { getApiErrorMessage } from '../api/errors.js';
-import { useAuth } from '../auth/AuthContext.jsx';
-import { dashboardPath } from '../auth/navigation.js';
+import { useMemo, useState } from 'react';
+import { ContentCard } from '../components/ContentCard.jsx';
+import { LoadState } from '../components/LoadState.jsx';
+import { PageIntro } from '../components/PageIntro.jsx';
+import { usePublicContent } from '../hooks/usePublicContent.js';
 
+// Search and type filters are client-side because the current catalogue API has no query contract.
 export function ExplorePage() {
-  const { user } = useAuth();
-  const [items, setItems] = useState([]);
-  const [state, setState] = useState({ loading: true, error: '' });
-  useEffect(() => {
-    let active = true;
-    api.get(API_PATHS.content, { authenticated: false }).then((data) => {
-      if (active) { setItems(Array.isArray(data) ? data : []); setState({ loading: false, error: '' }); }
-    }).catch((error) => {
-      if (active) setState({ loading: false, error: getApiErrorMessage(error.data, error.message) });
-    });
-    return () => { active = false; };
-  }, []);
-  return <section className="catalogue">
-    <div className="eyebrow">Explore</div><h1>Learning resources</h1>
-    <p>Browse published resources shared by Paid Link creators.</p>
-    {state.loading && <p role="status">Loading resources…</p>}
-    {state.error && <p className="form-error" role="alert">Could not load resources: {state.error}</p>}
-    {!state.loading && !state.error && items.length === 0 && <p>No resources have been published yet.</p>}
-    <div className="catalogue-grid">{items.map((item) => <article className="catalogue-card" key={item.id}>
-      <span className="eyebrow">{item.content_type} · {item.creator_username}</span><h2>{item.title}</h2><p>{item.description}</p>
-      <div className="catalogue-card-foot"><strong>{item.price} credits</strong>{user ? <Link to={dashboardPath(user.role)}>Go to workspace</Link> : <Link to="/login">Log in to continue</Link>}</div>
-    </article>)}</div>
+  const { items, loading, error } = usePublicContent();
+  const [search, setSearch] = useState('');
+  const [type, setType] = useState('all');
+  const visibleItems = useMemo(() => items.filter((item) => {
+    const text = `${item.title} ${item.description} ${item.creator_username}`.toLowerCase();
+    return text.includes(search.trim().toLowerCase()) && (type === 'all' || item.content_type === type);
+  }), [items, search, type]);
+  return <section className="page-shell">
+    <PageIntro eyebrow="Explore" title="Find your next lesson" description="Search practical learning resources shared by creators."/>
+    <div className="catalogue-tools"><label className="search-field"><span aria-hidden="true">⌕</span><span className="visually-hidden">Search learning resources</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by topic, title or creator" type="search"/></label>
+      <label className="filter-field"><span className="visually-hidden">Filter content type</span><select value={type} onChange={(event) => setType(event.target.value)}><option value="all">All formats</option><option value="pdf">PDF guides</option><option value="video">Videos</option></select></label>
+    </div>
+    <LoadState loading={loading} error={error} empty={visibleItems.length ? '' : (items.length ? 'No resources match those filters.' : 'There are no published resources yet.')}>
+      <div className="result-caption">{visibleItems.length} {visibleItems.length === 1 ? 'resource' : 'resources'}</div><div className="content-grid">{visibleItems.map((item) => <ContentCard key={item.id} item={item}/>)}</div>
+    </LoadState>
   </section>;
 }

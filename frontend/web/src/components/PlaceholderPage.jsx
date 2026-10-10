@@ -1,2 +1,6 @@
 import { Link } from 'react-router-dom';
-export function PlaceholderPage({ title, eyebrow = 'Coming soon', description = 'This space is ready for the next stage of Paid Link.' }) { return <section className="placeholder"><div className="eyebrow">{eyebrow}</div><h1>{title}</h1><p>{description}</p><Link className="button" to="/">Back to home <span>↗</span></Link>{eyebrow === '404' && <> <Link className="secondary-link" to="/explore">Explore resources</Link></>}</section>; }
+
+// Reusable 404 surface with a direct route back to the public home page.
+export function PlaceholderPage({ title, eyebrow = 'Coming soon', description = 'This feature is not available yet.' }) {
+  return <section className="page-shell"><div className="empty-panel"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p><Link className="button button-primary" to="/">Go to home</Link></div></section>;
+}
