@@ -14,4 +14,4 @@ if (import.meta.env.PROD && (parsedBaseUrl.protocol !== 'https:' || ['localhost'
 }
 
 export const API_BASE_URL = parsedBaseUrl.origin;
-export const API_PATHS = { login: '/api/accounts/login/', register: '/api/accounts/register/', refresh: '/api/accounts/token/refresh/', profile: '/api/accounts/profile/' };
+export const API_PATHS = { login: '/api/accounts/login/', register: '/api/accounts/register/', refresh: '/api/accounts/token/refresh/', profile: '/api/accounts/profile/', content: '/api/content/', myContent: '/api/content/my-content/', adminDashboard: '/api/admin/dashboard/' };
