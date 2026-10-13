@@ -1,5 +1,5 @@
 const configuredUrl = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-const rawBaseUrl = configuredUrl || (__DEV__ ? 'http://localhost:8000' : '');
+const rawBaseUrl = configuredUrl || (__DEV__ ? 'http://localhost:8000' : 'https://paid-link-backend.onrender.com');
 
 if (!rawBaseUrl) {
   throw new Error('EXPO_PUBLIC_API_BASE_URL must be set for production builds.');
@@ -14,4 +14,12 @@ if (!__DEV__ && (parsedBaseUrl.protocol !== 'https:' || ['localhost', '127.0.0.1
 }
 
 export const API_BASE_URL = parsedBaseUrl.origin;
-export const API_PATHS = { login: '/api/accounts/login/', register: '/api/accounts/register/', refresh: '/api/accounts/token/refresh/', profile: '/api/accounts/profile/' };
+export const API_PATHS = {
+  login: '/api/accounts/login/', register: '/api/accounts/register/', refresh: '/api/accounts/token/refresh/', profile: '/api/accounts/profile/',
+  content: '/api/content/', myContent: '/api/content/my-content/', contentCreate: '/api/content/create/',
+  creatorEarnings: '/api/accounts/creator/earnings/summary/', creatorContentEarnings: '/api/accounts/creator/earnings/content/',
+  contentAccess: (id) => `/api/content/${id}/access/`, purchase: (id) => `/api/purchases/${id}/purchase/`,
+  contentUpdate: (id) => `/api/content/${id}/update/`, contentPublish: (id) => `/api/content/${id}/publish/`,
+  adminDashboard: '/api/admin/dashboard/',
+};
+export const ADMIN_LIST_ENDPOINTS = { users: '/api/admin/users/', creators: '/api/admin/creators/', learners: '/api/admin/learners/', content: '/api/admin/content/', purchases: '/api/admin/purchases/', ledger: '/api/admin/ledger/', withdrawals: '/api/admin/withdrawals/' };

@@ -1,10 +1,12 @@
-# Paid Link
+# ElimuBang
 
-Paid Link is a single Git monorepo containing the existing Django REST API and its two clients:
+ElimuBang is a single Git monorepo containing the existing Django REST API and its two clients:
 
 - `backend/` — Django REST Framework API and PostgreSQL configuration
 - `frontend/web/` — React and Vite web client
-- `frontend/mobile/` — React Native and Expo SDK 57 app
+- `frontend/mobile/` — React Native and Expo SDK 57 app (JavaScript)
+
+The official web and mobile identity is **ElimuBang — Quality Tuition for a Brighter You.** The supplied logo lives at `frontend/web/public/elimu-bang-logo.png`; mobile icon, adaptive icon, and splash image files are generated from that original while preserving its full aspect ratio. Existing iOS and Android application identifiers are retained.
 
 The clients call the same API; registration remains implemented by Django at `POST /api/accounts/register/`. It returns the documented user and JWT envelope in [the API contract](backend/API_CONTRACT.md).
 
@@ -25,6 +27,10 @@ In another terminal, copy `frontend/web/.env.example` to `frontend/web/.env`, se
 
 For the Expo client, copy `frontend/mobile/.env.example` to `frontend/mobile/.env`, set `EXPO_PUBLIC_API_BASE_URL` to the API origin, then run `npm ci && npm start` in `frontend/mobile/`. A physical device needs the development computer's LAN address; a production EAS build needs the deployed HTTPS origin and the pre-install hook validates that configuration.
 
+The mobile client stores JWTs with Expo SecureStore, validates the session against the profile API, and exposes role-specific learner, creator, and administrator navigation from the server-reported role. Learners can search the public catalogue, view details, purchase with existing credits, and request protected resource links from the backend. Creators can list, edit, publish/unpublish, upload supported PDF/video files, and view server-reported earnings. Administrator mobile screens are read-only and call the protected admin API. The mobile client does not initiate M-Pesa operations.
+
+There is no backend endpoint for listing a learner's complete purchase history, so the mobile app verifies access from a resource's protected access endpoint instead of presenting an unsupported library list. File replacement during content editing is also not offered because the existing update endpoint accepts metadata only.
+
 ### Environment variables
 
 - Backend: `SECRET_KEY`, `DEBUG`, `DATABASE_URL` (or `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`), `ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, `CORS_ALLOW_CREDENTIALS`, and `CSRF_TRUSTED_ORIGINS`. Use complete comma-separated origins, including scheme and port. The JWT API does not require credentialed CORS.
@@ -36,15 +42,17 @@ Keep actual `.env` files and credentials out of Git. Tracked `.env.example` file
 
 ## Render deployment
 
-The root [Render Blueprint](render.yaml) provisions PostgreSQL, the Django API, and the static React app as one monorepo deployment. The API installs `backend/requirements.txt`, collects static files, runs `python manage.py migrate --noinput` as its pre-deploy step, and starts Gunicorn. Render probes `/api/health/`, which returns only `{"status":"ok"}` after a database connectivity check or a generic 503 response.
+The existing live frontend is `https://paidlinkweb.onrender.com` and the existing API is `https://paid-link-backend.onrender.com`. Deploy the web bundle through the already-created Render Static Site: use `frontend/web` as the root directory, `npm ci && npm run build` as the build command, and `dist` as the publish directory. Set that static site's `VITE_API_BASE_URL` to `https://paid-link-backend.onrender.com` and retain its `/*` to `/index.html` rewrite for client-side routes. Confirm the existing backend CORS setting includes `https://paidlinkweb.onrender.com` before publishing.
 
-The Blueprint generates `SECRET_KEY` and reads database connection details from its managed database. Optional Cloudinary and M-Pesa values are `sync: false` dashboard inputs; configure them only if those integrations are needed. No credential values belong in this repository. The web build is configured with `VITE_API_BASE_URL=https://paid-link-api.onrender.com`, and backend CORS allows `https://paid-link-web.onrender.com`. If you use different Render service names or custom domains, update both origins and `ALLOWED_HOSTS` in the Blueprint. Review the Blueprint and deploy in Render to enable deployment automation.
+Do not apply the root [Render Blueprint](render.yaml) to this existing deployment: it declares a PostgreSQL resource and would provision a separate database. Keep the production database and secrets unchanged. The API's existing pre-deploy migration command should only run through the already-configured backend service's normal deployment process; do not create or reset a database as part of a frontend update. No deployment is initiated by local builds.
 
 ## CI and monitoring
 
 GitHub Actions CI runs non-payment Django tests against PostgreSQL, builds the web production bundle, and checks Expo SDK/package compatibility. Payment integration tests are excluded; no real M-Pesa or other payment request is made.
 
-The [keep-alive workflow](.github/workflows/keep-alive.yml) requests the API health URL every ten minutes and also supports manual runs. To configure it once, open the GitHub repository's **Settings → Secrets and variables → Actions → Variables**, add a repository variable named `BACKEND_HEALTH_URL`, and set it to `https://paid-link-api.onrender.com/api/health/` (or the health URL for your deployment). The workflow reports a missing variable, timeout, invalid response, or unhealthy HTTP response as a failed run; inspect it in the Actions tab. Scheduled Actions may be delayed or disabled by GitHub, and periodic requests do not guarantee service uptime or prevent every hosting provider from sleeping a service.
+The [keep-alive workflow](.github/workflows/keep-alive.yml) requests the API health URL every ten minutes and also supports manual runs. To configure it once, open the GitHub repository's **Settings → Secrets and variables → Actions → Variables**, add a repository variable named `BACKEND_HEALTH_URL`, and set it to `https://paid-link-backend.onrender.com/api/health/` (or the health URL for your deployment). The workflow reports a missing variable, timeout, invalid response, or unhealthy HTTP response as a failed run; inspect it in the Actions tab. Scheduled Actions may be delayed or disabled by GitHub, and periodic requests do not guarantee service uptime or prevent every hosting provider from sleeping a service.
+
+For local checks, run `npm test` and `npm run build` in `frontend/web`, and `npm run check` plus `npx expo export --platform android` in `frontend/mobile`. Django checks and tests need the pinned dependencies and an isolated PostgreSQL test database; financial concurrency tests are not representative on SQLite.
 
 ## Troubleshooting registration
 

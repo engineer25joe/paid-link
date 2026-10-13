@@ -1,5 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { Brand } from '../components/Brand';
 import { AppButton } from '../components/AppButton';
-import { PageHeading, Screen } from '../components/Screen';
-export function HomeScreen({ navigation }) { return <Screen><View style={styles.brand}><Text style={styles.brandText}>Paid Link<Text style={styles.period}>.</Text></Text></View><View style={styles.hero}><PageHeading eyebrow="A better way to share what you know" title={<>Knowledge deserves a <Text style={styles.accent}>link.</Text></>} description="Discover practical learning resources from creators who care about what they make."/><AppButton title="Get started  ↗" onPress={() => navigation.navigate('Register')} /><View style={styles.gap}/><AppButton title="Log in" secondary onPress={() => navigation.navigate('Login')} /></View></Screen>; }
-const styles = StyleSheet.create({ brand: { paddingVertical: 10 }, brandText: { fontSize: 21, fontWeight: '800', color: '#172729' }, period: { color: '#75a944' }, hero: { flex: 1, justifyContent: 'center', paddingBottom: 40 }, accent: { color: '#75a944', fontFamily: 'serif', fontStyle: 'italic' }, gap: { height: 12 } });
+import { Screen } from '../components/Screen';
+
+export function HomeScreen({ navigation }) {
+  return <Screen><View style={styles.page}><Brand/><View style={styles.hero}><Text style={styles.title}>Learning for a brighter you.</Text><Text style={styles.copy}>Discover practical lessons and resources from people who care about what they teach.</Text><AppButton title="Explore ElimuBang" onPress={() => navigation.navigate('Explore')}/><View style={styles.gap}/><AppButton title="Log in" secondary onPress={() => navigation.navigate('Login')}/><AppButton title="Create a learner account" secondary onPress={() => navigation.navigate('Register')}/></View></View></Screen>;
+}
+const styles = StyleSheet.create({ page: { flex: 1 }, hero: { flex: 1, justifyContent: 'center', gap: 12 }, title: { color: '#000000', fontSize: 36, lineHeight: 42, fontWeight: '800' }, copy: { color: '#595959', fontSize: 16, lineHeight: 24, marginBottom: 14 }, gap: { height: 4 } });

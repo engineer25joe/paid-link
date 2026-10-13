@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { Brand } from '../components/Brand.jsx';
 import { ProfileMenu } from '../components/ProfileMenu.jsx';
+import { APP_SLOGAN } from '../config/brand.js';
 
 // Shared shell provides consistent public, learner, creator, and admin navigation.
 export function AppLayout() {
@@ -15,6 +16,6 @@ export function AppLayout() {
       <div className="topbar-account">{user ? <><span className="balance-pill">{user.credits ?? '—'} <small>credits</small></span><ProfileMenu/></> : <><NavLink className="login-link" to="/login">Log in</NavLink><NavLink className="button button-primary nav-cta" to="/register">Join free</NavLink></>}</div>
     </header>
     <main id="main-content"><Outlet/></main>
-    <footer className="site-footer"><Brand compact/><span>Practical learning, shared by people who know their craft.</span><NavLink to="/explore">Explore resources</NavLink></footer>
+    <footer className="site-footer"><Brand compact/><span>{APP_SLOGAN}</span><NavLink to="/explore">Explore resources</NavLink></footer>
   </div>;
 }

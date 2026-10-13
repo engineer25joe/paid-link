@@ -1,4 +1,4 @@
-# Paid Link sandbox and deployment configuration
+# ElimuBang sandbox and deployment configuration
 
 This file documents configuration names only. Put credentials in the deployment secret manager or protected environment; do not commit secret values.
 

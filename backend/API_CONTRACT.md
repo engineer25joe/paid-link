@@ -1,4 +1,4 @@
-# Paid Link Backend API Contract
+# ElimuBang Backend API Contract
 
 This document describes the HTTP API registered by the Django backend. Unless stated otherwise, requests and responses use JSON (`Content-Type: application/json`). Monetary values are decimal strings to avoid client-side floating point rounding. Timestamps are ISO-8601 strings (UTC unless an offset is shown).
 
