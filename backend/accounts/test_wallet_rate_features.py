@@ -37,6 +37,45 @@ class WalletRateFeatureTests(TestCase):
         with self.assertRaises(Exception):
             entry.delete()
 
+    def test_jwt_admin_adjustment_contract_and_superuser_role_mapping(self):
+        # Exercise the same bearer-token path used by the web and mobile clients.
+        login = self.client.post("/api/accounts/login/", {
+            "username": "wallet-admin", "password": "Strong-Password-123!",
+        }, format="json")
+        self.assertEqual(login.status_code, 200)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+        self.assertEqual(self.client.get("/api/accounts/profile/").data["role"], "admin")
+
+        search = self.client.get("/api/admin/wallet/users/?search=wallet-learner")
+        self.assertEqual(search.status_code, 200)
+        self.assertEqual(search.data["results"][0]["role"], "learner")
+        url = f"/api/admin/wallet/users/{self.learner.pk}/adjust/"
+        request_body = {
+            "direction": "add", "amount": "12.50", "reason": "JWT regression",
+            "idempotency_key": "f117eebb-2bd5-47e5-9004-68bbdf78ce5d",
+        }
+        response = self.client.post(url, request_body, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["balance_after"], "12.50")
+        self.learner.profile.refresh_from_db()
+        self.assertEqual(self.learner.profile.credits, Decimal("12.50"))
+        self.assertEqual(CreditTransaction.objects.filter(user=self.learner, transaction_type="adjustment").count(), 1)
+
+        # A replay returns the same result and does not write a second ledger row.
+        replay = self.client.post(url, request_body, format="json")
+        self.assertEqual(replay.status_code, 200, replay.data)
+        self.assertEqual(CreditTransaction.objects.filter(user=self.learner, transaction_type="adjustment").count(), 1)
+
+    def test_adjustment_rejects_nonpositive_and_insufficient_removal(self):
+        self.client.force_authenticate(self.admin)
+        url = f"/api/admin/wallet/users/{self.learner.pk}/adjust/"
+        for amount in ("0", "-1"):
+            response = self.client.post(url, {"direction": "add", "amount": amount, "reason": "Invalid"}, format="json")
+            self.assertEqual(response.status_code, 400)
+        response = self.client.post(url, {"direction": "remove", "amount": "0.01", "reason": "Too much"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(CreditTransaction.objects.filter(user=self.learner, transaction_type="adjustment").count(), 0)
+
     def test_conversion_change_keeps_purchase_snapshot(self):
         item = Content.objects.create(creator=self.admin, title="KES resource", description="D", content_type="pdf", price_kes=Decimal("100.00"), is_published=True)
         self.learner.profile.credits = Decimal("100.00")

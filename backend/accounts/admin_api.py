@@ -306,7 +306,8 @@ class AdminWalletUsers(APIView):
             return Response({"results": []})
         users = User.objects.filter(Q(username__icontains=query) | Q(email__icontains=query)).select_related("profile")[:30]
         return Response({"results": [{"id": user.pk, "username": user.username, "email": user.email,
-            "credits": str(user.profile.credits)} for user in users]})
+            "first_name": user.first_name, "last_name": user.last_name,
+            "role": effective_role(user), "credits": str(user.profile.credits)} for user in users]})
 
 
 class AdminWalletAdjustment(APIView):

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ElimuBang",
-    "slug": "paid-link",
+    "slug": "paidlink",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -26,10 +26,37 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "intentFilters": [{"action": "VIEW", "autoVerify": true, "data": [{"scheme": "https", "host": "paidlinkweb.onrender.com", "pathPrefix": "/shared"}, {"scheme": "https", "host": "paidlinkweb.onrender.com", "pathPrefix": "/guest-access"}], "category": ["BROWSABLE", "DEFAULT"]}]
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "paidlinkweb.onrender.com",
+              "pathPrefix": "/shared"
+            },
+            {
+              "scheme": "https",
+              "host": "paidlinkweb.onrender.com",
+              "pathPrefix": "/guest-access"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "ios": {
       "bundleIdentifier": "com.paidlink.mobile"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e74e497f-aea4-45e8-9f39-6b846d719326"
+      }
+    },
+    "owner": "engineer25joe"
   }
 }
