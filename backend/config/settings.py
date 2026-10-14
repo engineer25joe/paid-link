@@ -297,4 +297,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": os.getenv("API_ANON_RATE", "60/min"),
+        "user": os.getenv("API_USER_RATE", "600/hour"),
+        "login": os.getenv("API_LOGIN_RATE", "10/min"),
+        "registration": os.getenv("API_REGISTRATION_RATE", "5/hour"),
+    },
 }

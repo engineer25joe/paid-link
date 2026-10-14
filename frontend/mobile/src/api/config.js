@@ -16,6 +16,8 @@ if (!__DEV__ && (parsedBaseUrl.protocol !== 'https:' || ['localhost', '127.0.0.1
 export const API_BASE_URL = parsedBaseUrl.origin;
 export const API_PATHS = {
   login: '/api/accounts/login/', register: '/api/accounts/register/', refresh: '/api/accounts/token/refresh/', profile: '/api/accounts/profile/',
+  creatorApplications: '/api/accounts/creator/applications/', walletTransactions: '/api/accounts/wallet/transactions/', initiateTopup: '/api/payments/mpesa/initiate/',
+  myPurchases: '/api/purchases/',
   content: '/api/content/', myContent: '/api/content/my-content/', contentCreate: '/api/content/create/',
   creatorEarnings: '/api/accounts/creator/earnings/summary/', creatorContentEarnings: '/api/accounts/creator/earnings/content/',
   contentAccess: (id) => `/api/content/${id}/access/`, purchase: (id) => `/api/purchases/${id}/purchase/`,

@@ -1,10 +1,33 @@
-from rest_framework import permissions, status
+from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from content.models import Content
 
 from .services import purchase_content
+from .models import Purchase
+
+
+class LearnerPurchaseSerializer(serializers.ModelSerializer):
+    content_id = serializers.IntegerField(source="content.id", read_only=True)
+    title = serializers.CharField(source="content.title", read_only=True)
+    description = serializers.CharField(source="content.description", read_only=True)
+    content_type = serializers.CharField(source="content.content_type", read_only=True)
+    price = serializers.DecimalField(source="content.price", max_digits=10, decimal_places=2, read_only=True)
+    thumbnail_url = serializers.URLField(source="content.thumbnail_url", allow_null=True, read_only=True)
+
+    class Meta:
+        model = Purchase
+        fields = ("id", "content_id", "title", "description", "content_type", "price", "thumbnail_url", "amount_paid", "purchased_at")
+
+
+class MyPurchasesView(generics.ListAPIView):
+    serializer_class = LearnerPurchaseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return Purchase.objects.filter(user=self.request.user).select_related("content").order_by("-purchased_at")
 
 
 class PurchaseContentView(APIView):

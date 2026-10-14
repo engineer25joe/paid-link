@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ADMIN_LIST_ENDPOINTS, getAdminList, runAdminWithdrawalAction } from '../api/marketplace.js';
+import { api } from '../api/client.js';
 import { getApiErrorMessage } from '../api/errors.js';
 import { LoadState } from '../components/LoadState.jsx';
 import { PageIntro } from '../components/PageIntro.jsx';
@@ -40,10 +41,18 @@ export function AdminListPage() {
     catch (error) { setState((current) => ({ ...current, error: getApiErrorMessage(error.data, error.message) })); }
     finally { setActionBusy(null); }
   }
+  async function accountStatusAction(row) {
+    const is_active = !row.is_active;
+    if (!window.confirm(`${is_active ? 'Reactivate' : 'Suspend'} ${row.username}?`)) return;
+    setActionBusy(row.id); setNotice(''); setState((current) => ({ ...current, error: '' }));
+    try { await api.patch(`/api/admin/users/${row.id}/status/`, { is_active }); setPayload((current) => ({ ...current, results: current.results.map((item) => item.id === row.id ? { ...item, is_active } : item) })); setNotice(`${row.username} ${is_active ? 'reactivated' : 'suspended'}.`); }
+    catch (error) { setState((current) => ({ ...current, error: getApiErrorMessage(error.data, error.message) })); }
+    finally { setActionBusy(null); }
+  }
   if (!config) return <section className="page-shell"><PageIntro eyebrow="Admin view" title="List unavailable" description="Choose a management list from the admin overview."/><Link to="/admin">Back to overview</Link></section>;
   return <section className="page-shell"><Link className="back-link" to="/admin">← Admin overview</Link><PageIntro eyebrow="Admin view" title={config.title} description={`${payload.count} records returned by the protected admin API.`}/>
     {notice && <p className="notice notice-success" role="status">{notice}</p>}
-    <LoadState loading={state.loading} error={state.error} empty={payload.results.length ? '' : 'No records to show.'}><div className="table-wrap"><table><thead><tr>{config.columns.map((column) => <th key={column}>{column.replaceAll('_', ' ')}</th>)}{(section === 'withdrawals' || section === 'content') && <th>Actions</th>}</tr></thead><tbody>{payload.results.map((row) => <tr key={row.id}>{config.columns.map((column) => <td key={column}>{formatValue(row[column])}</td>)}{section === 'withdrawals' && <td><div className="table-actions">{row.status === 'pending' && <button className="text-action" onClick={() => withdrawalAction(row, 'approve')} disabled={actionBusy === row.id}>Approve</button>}{['pending', 'approved_reserved'].includes(row.status) && <button className="text-action text-danger" onClick={() => withdrawalAction(row, 'cancel')} disabled={actionBusy === row.id}>Cancel</button>}</div></td>}{section === 'content' && <td><Link className="text-action" to={`/admin/content/${row.id}/edit`}>Edit</Link></td>}</tr>)}</tbody></table></div></LoadState>
+    <LoadState loading={state.loading} error={state.error} empty={payload.results.length ? '' : 'No records to show.'}><div className="table-wrap"><table><thead><tr>{config.columns.map((column) => <th key={column}>{column.replaceAll('_', ' ')}</th>)}{['withdrawals', 'content', 'users', 'creators', 'learners'].includes(section) && <th>Actions</th>}</tr></thead><tbody>{payload.results.map((row) => <tr key={row.id}>{config.columns.map((column) => <td key={column}>{formatValue(row[column])}</td>)}{section === 'withdrawals' && <td><div className="table-actions">{row.status === 'pending' && <button className="text-action" onClick={() => withdrawalAction(row, 'approve')} disabled={actionBusy === row.id}>Approve</button>}{['pending', 'approved_reserved'].includes(row.status) && <button className="text-action text-danger" onClick={() => withdrawalAction(row, 'cancel')} disabled={actionBusy === row.id}>Cancel</button>}</div></td>}{section === 'content' && <td><Link className="text-action" to={`/admin/content/${row.id}/edit`}>Edit</Link></td>}{['users', 'creators', 'learners'].includes(section) && <td>{row.is_superuser ? 'Protected administrator' : <button className="text-action" onClick={() => accountStatusAction(row)} disabled={actionBusy === row.id}>{row.is_active ? 'Suspend account' : 'Reactivate account'}</button>}</td>}</tr>)}</tbody></table></div></LoadState>
     <div className="pagination"><button className="button button-light" onClick={() => setPage((value) => value - 1)} disabled={!payload.previous || state.loading}>Previous</button><span>Page {page}</span><button className="button button-light" onClick={() => setPage((value) => value + 1)} disabled={!payload.next || state.loading}>Next</button></div>
   </section>;
 }

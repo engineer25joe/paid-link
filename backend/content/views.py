@@ -12,6 +12,7 @@ from .services import (
     generate_private_content_url,
     upload_content_file,
 )
+from accounts.models import effective_role
 
 
 class IsCreatorOrAdmin(permissions.BasePermission):
@@ -19,7 +20,7 @@ class IsCreatorOrAdmin(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
 
-        return request.user.profile.role in ["creator", "admin"]
+        return request.user.is_active and effective_role(request.user) in ["creator", "admin"]
 
 
 class ContentListView(generics.ListAPIView):
@@ -175,7 +176,7 @@ class MyContentUpdateView(APIView):
                 creator=request.user,
             )
         except Content.DoesNotExist:
-            if request.user.profile.role == "admin":
+            if effective_role(request.user) == "admin":
                 try:
                     content = Content.objects.get(
                         id=content_id
@@ -234,7 +235,7 @@ class MyContentPublishView(APIView):
                 creator=request.user,
             )
         except Content.DoesNotExist:
-            if request.user.profile.role == "admin":
+            if effective_role(request.user) == "admin":
                 try:
                     content = Content.objects.get(
                         id=content_id

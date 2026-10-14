@@ -10,7 +10,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import UserProfile
+from accounts.models import UserProfile, effective_role
 from accounts.services import add_credits, deduct_credits, validate_b2c_amount, validate_money, validate_mpesa_amount
 from .models import CreatorWithdrawal, MpesaPayment
 from .services import (
@@ -79,7 +79,7 @@ class CreatorWithdrawalRequestView(APIView):
 
     def post(self, request):
         user = request.user
-        if user.profile.role != "creator":
+        if effective_role(user) != "creator":
             return Response({"error": "Only content creators can request withdrawals."}, status=403)
         try:
             amount = validate_b2c_amount(request.data.get("amount"))
@@ -104,7 +104,7 @@ class AdminWithdrawalListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        if request.user.profile.role != "admin":
+        if effective_role(request.user) != "admin":
             return Response({"error": "Admin access required."}, status=403)
         withdrawals = CreatorWithdrawal.objects.select_related("creator", "approved_by")
         return Response({"withdrawals": [{
@@ -119,7 +119,7 @@ class AdminApproveWithdrawalView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, withdrawal_id):
-        if request.user.profile.role != "admin":
+        if effective_role(request.user) != "admin":
             return Response({"error": "Admin access required."}, status=403)
         try:
             with transaction.atomic():
@@ -153,7 +153,7 @@ class AdminSubmitWithdrawalView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, withdrawal_id):
-        if request.user.profile.role != "admin":
+        if effective_role(request.user) != "admin":
             return Response({"error": "Admin access required."}, status=403)
         try:
             result = send_b2c_payment_request(withdrawal_id)
@@ -171,7 +171,7 @@ class AdminReconcileWithdrawalView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, withdrawal_id):
-        if request.user.profile.role != "admin":
+        if effective_role(request.user) != "admin":
             return Response({"error": "Admin access required."}, status=403)
         try:
             with transaction.atomic():
@@ -191,7 +191,7 @@ class AdminReconcilePaymentView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, payment_id):
-        if request.user.profile.role != "admin":
+        if effective_role(request.user) != "admin":
             return Response({"error": "Admin access required."}, status=403)
         try:
             with transaction.atomic():
@@ -242,7 +242,7 @@ class AdminCancelWithdrawalView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, withdrawal_id):
-        if request.user.profile.role != "admin":
+        if effective_role(request.user) != "admin":
             return Response({"error": "Admin access required."}, status=403)
         try:
             with transaction.atomic():

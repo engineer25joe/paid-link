@@ -11,7 +11,7 @@ from content.models import Content
 from payments.models import CreatorWithdrawal
 from purchases.models import Purchase
 
-from .models import CreditTransaction, UserProfile
+from .models import CreditTransaction, UserProfile, effective_role
 
 
 ZERO_MONEY = Value(Decimal("0.00"), output_field=DecimalField(max_digits=12, decimal_places=2))
@@ -29,7 +29,7 @@ class CreatorDashboardPermission(permissions.BasePermission):
         return bool(
             request.user
             and request.user.is_authenticated
-            and request.user.profile.role in {"creator", "admin"}
+            and effective_role(request.user) in {"creator", "admin"}
         )
 
 

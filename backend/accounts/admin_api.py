@@ -1,6 +1,10 @@
 from decimal import Decimal
 
 from django.contrib.auth.models import User
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db import transaction
+from django.utils import timezone
 from django.db.models import Count, Q, Sum, Value, DecimalField
 from django.db.models.functions import Coalesce
 from rest_framework import permissions
@@ -12,13 +16,12 @@ from content.models import Content
 from payments.models import CreatorWithdrawal, MpesaPayment
 from purchases.models import Purchase
 from .earnings import mask_phone_number
-from .models import CreditTransaction
+from .models import CreditTransaction, CreatorApplication, effective_role
 
 
 class IsPlatformAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and
-                    hasattr(request.user, "profile") and request.user.profile.role == "admin")
+        return bool(request.user and request.user.is_authenticated and effective_role(request.user) == "admin")
 
 
 class AdminPagination(PageNumberPagination):
@@ -63,6 +66,8 @@ class AdminListView(APIView):
                 data[field] = str(obj.profile.credits)
             elif field == "is_verified":
                 data[field] = obj.profile.is_verified
+            elif field == "creator_created_by_username":
+                data[field] = obj.profile.creator_created_by.username if obj.profile.creator_created_by else None
             elif field == "username" and hasattr(obj, "user"):
                 data[field] = obj.user.username
             elif field == "email" and hasattr(obj, "user"):
@@ -110,7 +115,7 @@ class DashboardStatsView(APIView):
 
     def get(self, request):
         users = User.objects.count()
-        roles = User.objects.values("profile__role").annotate(total=Count("pk"))
+        roles = User.objects.filter(is_superuser=False).values("profile__role").annotate(total=Count("pk"))
         role_counts = {row["profile__role"]: row["total"] for row in roles}
         purchase_value = Purchase.objects.aggregate(total=Coalesce(
             Sum("amount_paid"), Value(Decimal("0.00")),
@@ -132,10 +137,103 @@ class DashboardStatsView(APIView):
 
 class UserList(AdminListView):
     model = User
-    fields = ("id", "username", "email", "first_name", "last_name", "is_active", "date_joined", "role", "phone_number", "credits", "is_verified")
-    select_related = ("profile",)
+    fields = ("id", "username", "email", "first_name", "last_name", "is_active", "is_superuser", "date_joined", "role", "phone_number", "credits", "is_verified", "creator_created_by_username")
+    select_related = ("profile", "profile__creator_created_by")
     search_fields = ("username", "email", "first_name", "last_name")
-    filters = {"role": "profile__role", "is_active": "is_active"}
+    filters = {"is_active": "is_active"}
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        role = self.request.query_params.get("role")
+        if role == "admin":
+            qs = qs.filter(Q(profile__role="admin") | Q(is_superuser=True))
+        elif role:
+            qs = qs.filter(profile__role=role, is_superuser=False)
+        return qs
+
+    def serialize(self, obj):
+        data = super().serialize(obj)
+        data["role"] = effective_role(obj)
+        return data
+
+
+class CreatorApplicationList(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def get(self, request):
+        apps = CreatorApplication.objects.select_related("applicant", "decided_by").all()
+        paginator = AdminPagination()
+        page = paginator.paginate_queryset(apps, request, view=self)
+        return paginator.get_paginated_response([{ "id": app.pk, "username": app.applicant.username,
+            "email": app.applicant.email, "motivation": app.motivation, "status": app.status,
+            "created_at": app.created_at.isoformat(), "decided_at": app.decided_at.isoformat() if app.decided_at else None,
+            "decided_by_username": app.decided_by.username if app.decided_by else None}
+            for app in page])
+
+
+class CreatorApplicationDecision(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request, application_id):
+        decision = request.data.get("status")
+        if decision not in {"approved", "rejected"}:
+            return Response({"error": "Decision must be approved or rejected."}, status=400)
+        with transaction.atomic():
+            try:
+                application = CreatorApplication.objects.select_for_update().select_related("applicant").get(pk=application_id)
+            except CreatorApplication.DoesNotExist:
+                return Response({"error": "Application not found."}, status=404)
+            if application.status != "pending":
+                return Response({"error": "Only pending applications can be decided."}, status=400)
+            application.status = decision
+            application.decided_by = request.user
+            application.decided_at = timezone.now()
+            application.save(update_fields=["status", "decided_by", "decided_at", "updated_at"])
+            if decision == "approved":
+                application.applicant.profile.role = "creator"
+                application.applicant.profile.save(update_fields=["role", "updated_at"])
+        return Response({"application_id": application.pk, "status": application.status})
+
+
+class AdminCreatorCreate(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def post(self, request):
+        username = str(request.data.get("username", "")).strip()
+        email = str(request.data.get("email", "")).strip()
+        password = request.data.get("password", "")
+        if not username or not email or not password:
+            return Response({"error": "Username, email, and an initial password are required."}, status=400)
+        if User.objects.filter(username=username).exists() or User.objects.filter(email__iexact=email).exists():
+            return Response({"error": "Username or email is already in use."}, status=400)
+        try:
+            validate_password(password, user=User(username=username, email=email))
+        except ValidationError as exc:
+            return Response({"error": list(exc.messages)}, status=400)
+        with transaction.atomic():
+            creator = User.objects.create_user(username=username, email=email, password=password)
+            creator.profile.role = "creator"
+            creator.profile.creator_created_by = request.user
+            creator.profile.save(update_fields=["role", "creator_created_by", "updated_at"])
+        return Response({"id": creator.pk, "username": creator.username, "role": "creator"}, status=201)
+
+
+class AdminUserStatus(APIView):
+    permission_classes = [IsPlatformAdmin]
+
+    def patch(self, request, user_id):
+        try:
+            user = User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=404)
+        if user.pk == request.user.pk or user.is_superuser:
+            return Response({"error": "This administrator account cannot be suspended here."}, status=400)
+        active = request.data.get("is_active")
+        if not isinstance(active, bool):
+            return Response({"error": "is_active must be a boolean."}, status=400)
+        user.is_active = active
+        user.save(update_fields=["is_active"])
+        return Response({"id": user.pk, "is_active": user.is_active})
 
 
 class CreatorList(UserList):
@@ -145,7 +243,7 @@ class CreatorList(UserList):
 
 class LearnerList(UserList):
     def get_queryset(self):
-        return super().get_queryset().filter(profile__role="learner")
+        return super().get_queryset().filter(profile__role="learner", is_superuser=False)
 
 
 class ContentList(AdminListView):

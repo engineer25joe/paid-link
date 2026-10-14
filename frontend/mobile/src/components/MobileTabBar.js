@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-const learnerTabs = [['Workspace', 'Home'], ['Explore', 'Explore']];
-const creatorTabs = [['Workspace', 'Workspace'], ['CreatorContent', 'Content'], ['CreatorEarnings', 'Earnings']];
-const adminTabs = [['AdminDashboard', 'Admin'], ['Explore', 'Explore']];
+const learnerTabs = [['Workspace', 'Home'], ['Explore', 'Explore'], ['MyPurchases', 'Library']];
+const creatorTabs = [['Workspace', 'Workspace'], ['CreatorContent', 'Content'], ['CreatorEarnings', 'Earnings'], ['MyPurchases', 'Library']];
+const adminTabs = [['AdminDashboard', 'Admin'], ['Explore', 'Explore'], ['MyPurchases', 'Library']];
 export function MobileTabBar({ navigation, role, active }) {
   const tabs = role === 'creator' ? creatorTabs : role === 'admin' ? adminTabs : learnerTabs;
   return <View style={styles.bar}>{tabs.map(([route, label]) => <Pressable key={route} accessibilityRole="button" accessibilityState={{ selected: active === route }} onPress={() => navigation.navigate(route)} style={styles.item}><Text style={[styles.label, active === route && styles.selected]}>{label}</Text></Pressable>)}</View>;

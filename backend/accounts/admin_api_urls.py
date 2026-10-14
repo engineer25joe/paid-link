@@ -10,12 +10,17 @@ from .admin_api import (
     ContentDetail, ContentList, CreatorDetail, CreatorList, DashboardStatsView,
     LearnerDetail, LearnerList, LedgerList, PurchaseDetail, PurchaseList,
     UserDetail, UserList, WithdrawalDetail, WithdrawalList,
+    CreatorApplicationList, CreatorApplicationDecision, AdminCreatorCreate, AdminUserStatus,
 )
 
 urlpatterns = [
     path("dashboard/", DashboardStatsView.as_view(), name="admin-dashboard-stats"),
     path("users/", UserList.as_view(), name="admin-users"),
     path("users/<int:pk>/", UserDetail.as_view(), name="admin-user-detail"),
+    path("users/<int:user_id>/status/", AdminUserStatus.as_view(), name="admin-user-status"),
+    path("creator-applications/", CreatorApplicationList.as_view(), name="admin-creator-applications"),
+    path("creator-applications/<int:application_id>/decision/", CreatorApplicationDecision.as_view(), name="admin-creator-application-decision"),
+    path("creators/create/", AdminCreatorCreate.as_view(), name="admin-create-creator"),
     path("creators/", CreatorList.as_view(), name="admin-creators"),
     path("creators/<int:pk>/", CreatorDetail.as_view(), name="admin-creator-detail"),
     path("learners/", LearnerList.as_view(), name="admin-learners"),

@@ -17,6 +17,9 @@ export const API_BASE_URL = parsedBaseUrl.origin;
 export const API_PATHS = {
   login: '/api/accounts/login/', register: '/api/accounts/register/', refresh: '/api/accounts/token/refresh/',
   profile: '/api/accounts/profile/', content: '/api/content/', myContent: '/api/content/my-content/',
+  creatorApplications: '/api/accounts/creator/applications/', walletTransactions: '/api/accounts/wallet/transactions/',
+  myPurchases: '/api/purchases/',
+  initiateTopup: '/api/payments/mpesa/initiate/', creatorApplicationsAdmin: '/api/admin/creator-applications/',
   contentCreate: '/api/content/create/', creatorEarnings: '/api/accounts/creator/earnings/summary/',
   creatorContentEarnings: '/api/accounts/creator/earnings/content/', adminDashboard: '/api/admin/dashboard/',
   contentAccess: (id) => `/api/content/${id}/access/`, purchase: (id) => `/api/purchases/${id}/purchase/`,

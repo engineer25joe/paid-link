@@ -44,6 +44,15 @@ def upload_content_file(file, content_type):
             f"Invalid file type for {content_type}."
         )
 
+    # Validate the content signature as well as the browser-supplied MIME type.
+    position = file.tell()
+    header = file.read(16)
+    file.seek(position)
+    if content_type == "pdf" and not header.startswith(b"%PDF-"):
+        raise ValueError("The uploaded file does not contain a valid PDF signature.")
+    if content_type == "video" and not (header[4:8] == b"ftyp" or header.startswith(bytes.fromhex("1A45DFA3"))):
+        raise ValueError("The uploaded file does not contain a supported video signature.")
+
     resource_type = (
         "video"
         if content_type == "video"
