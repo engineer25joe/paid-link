@@ -11,9 +11,13 @@ from .admin_api import (
     LearnerDetail, LearnerList, LedgerList, PurchaseDetail, PurchaseList,
     UserDetail, UserList, WithdrawalDetail, WithdrawalList,
     CreatorApplicationList, CreatorApplicationDecision, AdminCreatorCreate, AdminUserStatus,
+    AdminWalletUsers, AdminWalletAdjustment, AdminCreditRate,
 )
 
 urlpatterns = [
+    path("wallet/users/", AdminWalletUsers.as_view(), name="admin-wallet-users"),
+    path("wallet/users/<int:user_id>/adjust/", AdminWalletAdjustment.as_view(), name="admin-wallet-adjust"),
+    path("settings/credit-rate/", AdminCreditRate.as_view(), name="admin-credit-rate"),
     path("dashboard/", DashboardStatsView.as_view(), name="admin-dashboard-stats"),
     path("users/", UserList.as_view(), name="admin-users"),
     path("users/<int:pk>/", UserDetail.as_view(), name="admin-user-detail"),

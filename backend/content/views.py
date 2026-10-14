@@ -13,6 +13,7 @@ from .services import (
     upload_content_file,
 )
 from accounts.models import effective_role
+from accounts.services import validate_kes_price
 
 
 class IsCreatorOrAdmin(permissions.BasePermission):
@@ -42,7 +43,6 @@ class ContentCreateView(APIView):
             "title",
             "description",
             "content_type",
-            "price",
             "file",
         ]
 
@@ -54,6 +54,11 @@ class ContentCreateView(APIView):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+
+        try:
+            price_kes = validate_kes_price(request.data.get("price_kes", request.data.get("price")))
+        except ValueError as error:
+            return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             upload_result = upload_content_file(
@@ -73,7 +78,7 @@ class ContentCreateView(APIView):
             title=request.data["title"],
             description=request.data["description"],
             content_type=request.data["content_type"],
-            price=request.data["price"],
+            price_kes=price_kes,
             thumbnail_url=request.data.get(
                 "thumbnail_url",
                 "",
@@ -199,18 +204,20 @@ class MyContentUpdateView(APIView):
         allowed_fields = [
             "title",
             "description",
-            "price",
+            "price_kes",
             "thumbnail_url",
             "is_published",
         ]
 
         for field in allowed_fields:
             if field in request.data:
-                setattr(
-                    content,
-                    field,
-                    request.data[field],
-                )
+                value = request.data[field]
+                if field == "price_kes":
+                    try:
+                        value = validate_kes_price(value)
+                    except ValueError as error:
+                        return Response({"error": str(error)}, status=status.HTTP_400_BAD_REQUEST)
+                setattr(content, field, value)
 
         content.save()
 

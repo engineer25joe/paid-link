@@ -25,7 +25,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
-      }
+      },
+      "intentFilters": [{"action": "VIEW", "autoVerify": true, "data": [{"scheme": "https", "host": "paidlinkweb.onrender.com", "pathPrefix": "/shared"}, {"scheme": "https", "host": "paidlinkweb.onrender.com", "pathPrefix": "/guest-access"}], "category": ["BROWSABLE", "DEFAULT"]}]
     },
     "ios": {
       "bundleIdentifier": "com.paidlink.mobile"

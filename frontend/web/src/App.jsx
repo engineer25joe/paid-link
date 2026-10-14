@@ -19,6 +19,12 @@ import { LoginPage } from './pages/LoginPage.jsx';
 import { ProfilePage } from './pages/ProfilePage.jsx';
 import { PurchasesPage } from './pages/PurchasesPage.jsx';
 import { RegisterPage } from './pages/RegisterPage.jsx';
+import { WalletPage } from './pages/WalletPage.jsx';
+import { AdminWalletPage } from './pages/AdminWalletPage.jsx';
+import { AdminSettingsPage } from './pages/AdminSettingsPage.jsx';
+import { ShareManagementPage } from './pages/ShareManagementPage.jsx';
+import { SharedContentPage } from './pages/SharedContentPage.jsx';
+import { GuestAccessPage } from './pages/GuestAccessPage.jsx';
 
 // Routes live here; page components own presentation and page-specific requests.
 function AuthPageRedirect() {
@@ -35,16 +41,17 @@ export function App() {
     <Route path="home" element={<HomeAlias/>}/>
     <Route path="explore" element={<ExplorePage/>}/>
     <Route path="content/:id" element={<ContentDetailPage/>}/>
+    <Route path="shared/:token" element={<SharedContentPage/>}/><Route path="guest-access/:token" element={<GuestAccessPage/>}/>
     <Route element={<AuthPageRedirect/>}><Route path="login" element={<LoginPage/>}/><Route path="register" element={<RegisterPage/>}/></Route>
     <Route element={<ProtectedRoute roles={['learner', 'creator', 'admin']}/> }>
-      <Route path="library" element={<LibraryPage/>}/><Route path="purchases" element={<PurchasesPage/>}/><Route path="profile" element={<ProfilePage/>}/><Route path="settings" element={<Navigate to="/profile" replace/>}/>
+      <Route path="library" element={<LibraryPage/>}/><Route path="purchases" element={<PurchasesPage/>}/><Route path="profile" element={<ProfilePage/>}/><Route path="settings" element={<Navigate to="/profile" replace/>}/><Route path="wallet" element={<WalletPage/>}/>
       <Route path="workspace" element={<HomeAlias/>}/>
     </Route>
     <Route element={<ProtectedRoute roles={['learner']}/> }><Route path="learner" element={<HomeAlias/>}/></Route>
     <Route element={<ProtectedRoute roles={['creator', 'admin']}/> }>
-      <Route path="creator" element={<Navigate to="/creator/content" replace/>}/><Route path="creator/content" element={<CreatorContentPage/>}/><Route path="creator/content/new" element={<CreateContentPage/>}/><Route path="creator/content/:id/edit" element={<EditContentPage/>}/><Route path="creator/earnings" element={<CreatorEarningsPage/>}/>
+      <Route path="creator" element={<Navigate to="/creator/content" replace/>}/><Route path="creator/content" element={<CreatorContentPage/>}/><Route path="creator/content/new" element={<CreateContentPage/>}/><Route path="creator/content/:id/edit" element={<EditContentPage/>}/><Route path="creator/earnings" element={<CreatorEarningsPage/>}/><Route path="creator/shares" element={<ShareManagementPage/>}/>
     </Route>
-    <Route element={<ProtectedRoute roles={['admin']}/> }><Route path="admin" element={<AdminPage/>}/><Route path="admin/content/:id/edit" element={<AdminEditContentPage/>}/><Route path="admin/:section" element={<AdminListPage/>}/></Route>
+    <Route element={<ProtectedRoute roles={['admin']}/> }><Route path="admin" element={<AdminPage/>}/><Route path="admin/wallet" element={<AdminWalletPage/>}/><Route path="admin/settings" element={<AdminSettingsPage/>}/><Route path="admin/content/:id/edit" element={<AdminEditContentPage/>}/><Route path="admin/:section" element={<AdminListPage/>}/></Route>
     <Route path="*" element={<PlaceholderPage title="We can’t find that page" eyebrow="404" description="The page may have moved, or the address may be incorrect."/>}/>
   </Route></Routes>;
 }

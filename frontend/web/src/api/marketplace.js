@@ -25,3 +25,13 @@ export const runAdminWithdrawalAction = (id, action) => {
   if (!['approve', 'cancel'].includes(action)) throw new Error('Unsupported withdrawal action.');
   return api.post(`/api/admin/withdrawals/${id}/${action}/`, {});
 };
+export const getWallet = () => api.get(API_PATHS.walletTransactions);
+export const getCreditRate = () => api.get(API_PATHS.creditRate, { authenticated: false });
+export const initiateTopup = (amount, phone_number) => api.post(API_PATHS.initiateTopup, { amount, phone_number });
+export const getShares = () => api.get(API_PATHS.shareCollection);
+export const createShare = (payload) => api.post(API_PATHS.shareCollection, payload);
+export const revokeShare = (id) => api.post(`${API_PATHS.shareCollection}${id}/revoke/`, {});
+export const getSharedContent = (token) => api.get(API_PATHS.sharedContent(token), { authenticated: false });
+export const initiateGuestPayment = (token, phone_number) => api.post(API_PATHS.guestPayment(token), { phone_number }, { authenticated: false });
+export const getGuestPaymentStatus = (token) => api.get(API_PATHS.guestPaymentStatus(token), { authenticated: false });
+export const getGuestContent = (token) => api.get(API_PATHS.guestContent(token), { authenticated: false });

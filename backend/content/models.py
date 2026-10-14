@@ -19,10 +19,21 @@ class Content(models.Model):
         max_length=10,
         choices=CONTENT_TYPES,
     )
-    price = models.DecimalField(
+    # Money is the creator-set source of truth; credits are derived at checkout.
+    price_kes = models.DecimalField(
         max_digits=10,
         decimal_places=2,
     )
+
+    # Temporary source-compatibility for existing integrations while clients
+    # migrate to the explicit KES field.
+    @property
+    def price(self):
+        return self.price_kes
+
+    @price.setter
+    def price(self, value):
+        self.price_kes = value
 
     # Temporary URL field used by the current development content.
     file_url = models.URLField(

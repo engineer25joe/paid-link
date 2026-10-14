@@ -24,6 +24,7 @@ export function CreatorContentPage() {
     finally { setBusyId(null); }
   }
   return <section className="page-shell"><PageIntro eyebrow="Creator studio" title="My content" description="Manage your learning resources and publication status." action={<Link className="button button-primary" to="/creator/content/new">Create content <span aria-hidden="true">＋</span></Link>}/>
+    <p><Link className="button button-light" to="/creator/shares">Share Content</Link></p>
     <LoadState loading={state.loading} error={state.error} empty={items.length ? '' : 'You have not created any resources yet.'}>
       <div className="creator-content-grid">{items.map((item) => <article className="creator-item" key={item.id}><ContentCard item={item} manage/><div className="creator-item-actions"><span className={`status-pill ${item.is_published ? 'status-live' : ''}`}>{item.is_published ? 'Published' : 'Draft'}</span><button className="text-action" onClick={() => togglePublish(item)} disabled={busyId === item.id}>{busyId === item.id ? 'Saving…' : item.is_published ? 'Unpublish' : 'Publish'}</button></div></article>)}</div>
     </LoadState>

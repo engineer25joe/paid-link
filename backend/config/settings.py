@@ -74,6 +74,7 @@ MPESA_B2C_TIMEOUT_URL = os.getenv(
 )
 
 MPESA_B2C_RECONCILIATION_URL = os.getenv("MPESA_B2C_RECONCILIATION_URL")
+PUBLIC_WEB_URL = os.getenv("PUBLIC_WEB_URL", "https://paidlinkweb.onrender.com").rstrip("/")
 
 """
 Django settings for config project.

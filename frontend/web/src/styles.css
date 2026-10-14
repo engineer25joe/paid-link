@@ -154,6 +154,24 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .detail-price { display: flex; justify-content: space-between; padding: 17px 0; margin: 23px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .detail-price strong { color: var(--blue); }
 .detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.wallet-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 18px; margin: 16px 0 26px; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.wallet-summary strong { color: var(--ink); font-size: 20px; margin-right: auto; }
+.inline-search { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-bottom: 20px; }
+.inline-search label { flex-basis: 100%; font-weight: 700; }
+.inline-search input { flex: 1; min-width: 220px; padding: 12px; border: 1px solid var(--line); border-radius: 9px; }
+.wallet-user-row { display: flex; width: 100%; flex-wrap: wrap; gap: 12px; padding: 14px; margin: 8px 0; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.wallet-user-row span { color: var(--muted); margin-right: auto; }
+.share-create-form { max-width: 760px; margin-bottom: 30px; }
+.share-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 18px; padding: 20px; margin: 12px 0; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
+.share-row h3 { margin: 0 0 8px; }
+.share-row p { overflow-wrap: anywhere; }
+.share-row dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; font-size: 12px; }
+.share-row dt { color: var(--muted); }
+.share-row dd { margin: 0; }
+.share-status { display: inline-block; padding: 5px 9px; color: #8b1d1d; background: #fff1f1; border-radius: 20px; font-size: 11px; }
+.share-status.is-active { color: #176343; background: #e9f8f0; }
+.share-expiry { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; margin: 18px 0; padding: 18px; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.share-expiry strong { color: var(--red); font-variant-numeric: tabular-nums; font-size: 24px; }
 .protected-viewer { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--line); }
 .protected-viewer h2 { color: var(--blue-deep); font-size: 20px; }
 .pdf-viewer, .video-viewer { display: block; width: 100%; min-height: 420px; margin: 14px 0; background: #171717; border: 1px solid var(--line); border-radius: 12px; }

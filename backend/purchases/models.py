@@ -16,9 +16,11 @@ class Purchase(models.Model):
         related_name="purchases",
     )
     amount_paid = models.DecimalField(
-        max_digits=10,
+        max_digits=12,
         decimal_places=2,
     )
+    credits_charged = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    conversion_rate = models.DecimalField(max_digits=12, decimal_places=4, default=2)
     purchased_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

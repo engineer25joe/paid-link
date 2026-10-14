@@ -72,7 +72,7 @@ export function ContentDetailPage() {
         <div className="content-meta"><span>{item.content_type}</span>{item.creator_username && <span>By {item.creator_username}</span>}</div>
         <h1>{item.title || 'Untitled resource'}</h1>
         {item.description && <p>{item.description}</p>}
-        <div className="detail-price"><span>One-time access</span><strong>{item.price ?? '—'} credits</strong></div>
+        <div className="detail-price"><span>One-time price</span><strong>KES {item.price_kes ?? '—'} · {item.price ?? '—'} credits</strong></div>
         {error && <div className="notice notice-error" role="alert"><p>{error}</p>{accessState === 'authentication-required' && <button className="button button-light" onClick={signIn}>Sign in to continue</button>}{accessState === 'not-found' && <Link className="button button-light" to="/explore">Browse available resources</Link>}</div>}
         {message && <p className="notice notice-success" role="status">{message}</p>}
         {accessState === 'purchase-required' && <p className="notice" role="status">Purchase required: complete the purchase below to unlock this resource.</p>}

@@ -10,7 +10,7 @@ const sections = {
   users: { title: 'Users', endpoint: ADMIN_LIST_ENDPOINTS.users, columns: ['username', 'email', 'role', 'credits', 'is_active'] },
   creators: { title: 'Creators', endpoint: ADMIN_LIST_ENDPOINTS.creators, columns: ['username', 'email', 'credits', 'is_verified'] },
   learners: { title: 'Learners', endpoint: ADMIN_LIST_ENDPOINTS.learners, columns: ['username', 'email', 'credits', 'is_verified'] },
-  content: { title: 'Content', endpoint: ADMIN_LIST_ENDPOINTS.content, columns: ['title', 'creator_username', 'content_type', 'price', 'is_published'] },
+  content: { title: 'Content', endpoint: ADMIN_LIST_ENDPOINTS.content, columns: ['title', 'creator_username', 'content_type', 'price_kes', 'is_published'] },
   purchases: { title: 'Purchases', endpoint: ADMIN_LIST_ENDPOINTS.purchases, columns: ['user_username', 'content_title', 'amount_paid', 'purchased_at'] },
   ledger: { title: 'Credit ledger', endpoint: ADMIN_LIST_ENDPOINTS.ledger, columns: ['user_username', 'transaction_type', 'amount', 'balance_after', 'created_at'] },
   withdrawals: { title: 'Withdrawals', endpoint: ADMIN_LIST_ENDPOINTS.withdrawals, columns: ['creator_username', 'amount', 'status', 'payout_status', 'phone_number', 'created_at'] },

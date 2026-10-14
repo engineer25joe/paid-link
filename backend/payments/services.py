@@ -1,7 +1,8 @@
 import base64
+import secrets
 import uuid
 from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 import requests
@@ -11,7 +12,7 @@ from django.utils import timezone
 
 from accounts.models import UserProfile
 from accounts.services import add_credits, validate_b2c_amount, validate_money, validate_mpesa_amount
-from .models import CreatorWithdrawal
+from .models import CreatorWithdrawal, GuestContentAccess, MpesaPayment, SharedContentShare
 
 
 def get_mpesa_access_token():
@@ -105,6 +106,43 @@ def initiate_stk_push(phone_number, amount, account_reference, transaction_descr
     )
     response.raise_for_status()
     return response.json()
+
+
+@transaction.atomic
+def settle_mpesa_payment(payment_id, receipt, provider_data):
+    """Settle only after the caller has independently verified the provider."""
+    payment = MpesaPayment.objects.select_for_update().select_related("user").get(pk=payment_id)
+    if payment.status == "completed":
+        return payment
+    if MpesaPayment.objects.filter(mpesa_receipt_number=receipt).exclude(pk=payment.pk).exists():
+        raise ValueError("Provider receipt is already associated with another payment.")
+
+    if payment.guest_share_id:
+        share = SharedContentShare.objects.select_for_update().get(pk=payment.guest_share_id)
+        share.reserved_count = max(0, share.reserved_count - 1)
+        share_valid = (share.status == "active" and share.expires_at > timezone.now()
+                       and share.used_count < share.max_uses)
+        if share_valid:
+            token = secrets.token_urlsafe(32)
+            GuestContentAccess.objects.create(payment=payment, share=share, token=token,
+                expires_at=timezone.now() + timedelta(seconds=share.access_duration_seconds))
+            share.used_count += 1
+        else:
+            payment.result_description = "M-Pesa verified, but the share expired, was revoked, or reached its limit before settlement; access was not issued."
+        share.save(update_fields=["reserved_count", "used_count"])
+    else:
+        if not payment.user_id:
+            raise ValueError("A non-guest payment must belong to a user.")
+        add_credits(payment.user, payment.credits_awarded, transaction_type="topup",
+            description=f"M-Pesa top-up {receipt}", idempotency_key=f"topup:payment:{payment.pk}",
+            amount_kes=payment.amount, conversion_rate=payment.conversion_rate, payment_reference=receipt)
+
+    payment.mpesa_receipt_number = receipt
+    payment.status = "completed"
+    if not payment.result_description or not payment.guest_share_id:
+        payment.result_description = str(provider_data)[:2000]
+    payment.save(update_fields=["mpesa_receipt_number", "status", "result_description", "updated_at"])
+    return payment
 
 
 @transaction.atomic

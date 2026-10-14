@@ -17,6 +17,7 @@ export function AdminDashboardScreen({ navigation }) {
     {state.loading && <ActivityIndicator color="#FF0000"/>}{state.error ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
     {stats && <View style={styles.metrics}>{[['Users', stats.total_users], ['Learners', stats.learners], ['Creators', stats.creators], ['Published resources', stats.published_content], ['Purchases', stats.total_purchases], ['Pending withdrawals', stats.pending_withdrawals], ['Unresolved payments', stats.unresolved_payment_records]].map(([label, value]) => <View key={label} style={styles.metric}><Text style={styles.label}>{label}</Text><Text style={styles.value}>{value ?? '—'}</Text></View>)}</View>}
     {lists.map(([section, title]) => <View key={section} style={styles.button}><AppButton title={`View ${title}`} secondary onPress={() => navigation.navigate('AdminRecords', { section })}/></View>)}
+    <View style={styles.button}><AppButton title="Wallet adjustments" secondary onPress={() => navigation.navigate('AdminWallet')}/></View><View style={styles.button}><AppButton title="Credit conversion settings" secondary onPress={() => navigation.navigate('AdminSettings')}/></View><View style={styles.button}><AppButton title="Share management" secondary onPress={() => navigation.navigate('ShareManagement')}/></View>
     <MobileTabBar navigation={navigation} role={user?.role} active="AdminDashboard"/>
   </View></Screen>;
 }

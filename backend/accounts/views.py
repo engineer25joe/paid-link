@@ -110,8 +110,24 @@ class WalletHistoryView(APIView):
         payments = MpesaPayment.objects.filter(user=request.user).order_by("-created_at")[:50]
         return Response({"transactions": [{"id": row.pk, "type": row.transaction_type,
             "amount": str(row.amount), "balance_after": str(row.balance_after),
-            "description": row.description, "created_at": row.created_at.isoformat()}
+            "balance_before": str(row.balance_before) if row.balance_before is not None else None,
+            "description": row.description, "reason": row.reason,
+            "administrator": row.administrator.username if row.administrator else None,
+            "amount_kes": str(row.amount_kes) if row.amount_kes is not None else None,
+            "conversion_rate": str(row.conversion_rate) if row.conversion_rate is not None else None,
+            "payment_reference": row.payment_reference,
+            "created_at": row.created_at.isoformat()}
             for row in rows], "payments": [{"id": payment.pk, "type": "topup",
             "amount": str(payment.amount), "status": payment.status,
             "reference": payment.mpesa_receipt_number,
-            "created_at": payment.created_at.isoformat()} for payment in payments]})
+            "created_at": payment.created_at.isoformat(), "amount_kes": str(payment.amount),
+            "credits_awarded": str(payment.credits_awarded), "conversion_rate": str(payment.conversion_rate)}
+            for payment in payments]})
+
+
+class PublicCreditRateView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from .models import PlatformSettings
+        return Response({"credit_to_kes_rate": str(PlatformSettings.current().credit_to_kes_rate), "currency": "KES"})

@@ -16,11 +16,13 @@ test('each role maps only to its own protected dashboard', () => {
 
 test('public destinations are valid and arbitrary or role-forbidden destinations are rejected', () => {
   for (const path of ['/', '/login', '/register', '/explore']) assert.equal(canAccessPath(path, 'learner'), true);
-  assert.equal(canAccessPath('/admin/settings', 'admin'), false);
+  assert.equal(canAccessPath('/admin/settings', 'admin'), true);
+  assert.equal(canAccessPath('/admin/wallet', 'admin'), true);
   assert.equal(canAccessPath('/admin/users', 'admin'), true);
   assert.equal(canAccessPath('https://example.com', 'admin'), false);
   assert.equal(canAccessPath('/creator/content/new', 'creator'), true);
   assert.equal(canAccessPath('/creator/content/new', 'admin'), true);
+  assert.equal(canAccessPath('/creator/shares', 'creator'), true);
   assert.equal(canAccessPath('/creator/content/14/edit', 'creator'), true);
   assert.equal(canAccessPath('/creator/settings', 'creator'), false);
   assert.equal(canAccessPath('/admin/users', 'creator'), false);

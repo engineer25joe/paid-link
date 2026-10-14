@@ -13,12 +13,18 @@ class LearnerPurchaseSerializer(serializers.ModelSerializer):
     title = serializers.CharField(source="content.title", read_only=True)
     description = serializers.CharField(source="content.description", read_only=True)
     content_type = serializers.CharField(source="content.content_type", read_only=True)
-    price = serializers.DecimalField(source="content.price", max_digits=10, decimal_places=2, read_only=True)
+    price = serializers.SerializerMethodField()
+    price_kes = serializers.DecimalField(source="content.price_kes", max_digits=10, decimal_places=2, read_only=True)
+    credits_charged = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    conversion_rate = serializers.DecimalField(max_digits=12, decimal_places=4, read_only=True)
     thumbnail_url = serializers.URLField(source="content.thumbnail_url", allow_null=True, read_only=True)
 
     class Meta:
         model = Purchase
-        fields = ("id", "content_id", "title", "description", "content_type", "price", "thumbnail_url", "amount_paid", "purchased_at")
+        fields = ("id", "content_id", "title", "description", "content_type", "price", "price_kes", "credits_charged", "conversion_rate", "thumbnail_url", "amount_paid", "purchased_at")
+
+    def get_price(self, obj):
+        return str(obj.credits_charged)
 
 
 class MyPurchasesView(generics.ListAPIView):
@@ -51,7 +57,9 @@ class PurchaseContentView(APIView):
                     "purchase": {
                         "content_id": content.id,
                         "title": content.title,
-                        "amount_paid": str(content.price),
+                        "amount_paid": str(content.price_kes),
+                        "credits_charged": str(content.purchases.get(user=request.user).credits_charged),
+                        "conversion_rate": str(content.purchases.get(user=request.user).conversion_rate),
                     },
                     "remaining_credits": str(new_balance),
                 },

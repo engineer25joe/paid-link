@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models import Count, DecimalField, Max, Q, Sum, Value
+from django.db.models import Count, DecimalField, IntegerField, Max, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from rest_framework import generics, permissions, serializers
 from rest_framework.pagination import PageNumberPagination
@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from content.models import Content
-from payments.models import CreatorWithdrawal
+from payments.models import CreatorWithdrawal, MpesaPayment
 from purchases.models import Purchase
 
 from .models import CreditTransaction, UserProfile, effective_role
@@ -58,6 +58,8 @@ class CreatorEarningsSummaryView(APIView):
             total_sales=Count("pk"),
             gross_earnings=Coalesce(Sum("amount_paid"), ZERO_MONEY),
         )
+        guest_sales = MpesaPayment.objects.filter(guest_share__content__creator_id=creator_id,
+            status="completed", guest_access__isnull=False).aggregate(total=Sum("amount"), count=Count("pk"))
         withdrawal_totals = CreatorWithdrawal.objects.filter(creator_id=creator_id).aggregate(
             total_withdrawn=Coalesce(
                 Sum("amount", filter=Q(status__in=SUCCESSFUL_WITHDRAWAL_STATUSES)), ZERO_MONEY,
@@ -69,11 +71,11 @@ class CreatorEarningsSummaryView(APIView):
         published_contents = Content.objects.filter(creator_id=creator_id, is_published=True).count()
         balance = UserProfile.objects.only("credits").get(user_id=creator_id).credits
         return Response({
-            "total_sales_count": sales["total_sales"],
-            "gross_earnings": str(sales["gross_earnings"]),
+            "total_sales_count": sales["total_sales"] + guest_sales["count"],
+            "gross_earnings": f'{sales["gross_earnings"] + (guest_sales["total"] or Decimal("0.00")):.2f}',
             "available_credit_balance": str(balance),
-            "total_withdrawn": str(withdrawal_totals["total_withdrawn"]),
-            "pending_processing_withdrawal_amount": str(withdrawal_totals["pending_processing"]),
+            "total_withdrawn": f'{withdrawal_totals["total_withdrawn"]:.2f}',
+            "pending_processing_withdrawal_amount": f'{withdrawal_totals["pending_processing"]:.2f}',
             "published_contents_count": published_contents,
         })
 
@@ -93,9 +95,16 @@ class CreatorEarningsByContentView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
+        guest_amounts = MpesaPayment.objects.filter(guest_share__content_id=OuterRef("pk"),
+            status="completed", guest_access__isnull=False).values("guest_share__content_id").annotate(
+                total=Sum("amount")).values("total")[:1]
+        guest_counts = MpesaPayment.objects.filter(guest_share__content_id=OuterRef("pk"),
+            status="completed", guest_access__isnull=False).values("guest_share__content_id").annotate(
+                total=Count("pk")).values("total")[:1]
         return Content.objects.filter(creator_id=self.request.user.pk).annotate(
-            purchase_count=Count("purchases"),
-            gross_sales=Coalesce(Sum("purchases__amount_paid"), ZERO_MONEY),
+            purchase_count=Count("purchases") + Coalesce(Subquery(guest_counts, output_field=IntegerField()), Value(0)),
+            gross_sales=Coalesce(Sum("purchases__amount_paid"), ZERO_MONEY) +
+                Coalesce(Subquery(guest_amounts, output_field=DecimalField(max_digits=12, decimal_places=2)), ZERO_MONEY),
             latest_purchase_at=Max("purchases__purchased_at"),
         ).order_by("title", "pk")
 

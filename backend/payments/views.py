@@ -10,8 +10,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import UserProfile, effective_role
-from accounts.services import add_credits, deduct_credits, validate_b2c_amount, validate_money, validate_mpesa_amount
+from accounts.models import PlatformSettings, UserProfile, effective_role
+from accounts.services import add_credits, credits_for_kes, deduct_credits, validate_b2c_amount, validate_money, validate_mpesa_amount
 from .models import CreatorWithdrawal, MpesaPayment
 from .services import (
     normalize_mpesa_phone,
@@ -21,6 +21,7 @@ from .services import (
     initiate_stk_push,
     verify_stk_transaction,
     request_b2c_status_reconciliation,
+    settle_mpesa_payment,
 )
 
 
@@ -36,7 +37,13 @@ class InitiateMpesaPaymentView(APIView):
             phone = normalize_mpesa_phone(request.data.get("phone_number", ""))
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        setting = PlatformSettings.current()
+        try:
+            credits = credits_for_kes(amount, setting.credit_to_kes_rate, topup=True)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=400)
         payment = MpesaPayment.objects.create(user=request.user, phone_number=phone, amount=amount,
+                                              credits_awarded=credits, conversion_rate=setting.credit_to_kes_rate,
                                               callback_token=secrets.token_hex(32))
         try:
             result = initiate_stk_push(phone, amount, f"PAIDLINK-{payment.pk}", "Paid Link credit top-up",
@@ -60,7 +67,9 @@ class InitiateMpesaPaymentView(APIView):
                 payment.save(update_fields=["merchant_request_id", "checkout_request_id", "result_code",
                                             "result_description", "status", "updated_at"])
             return Response({"payment_id": payment.pk, "status": payment.status,
-                             "checkout_request_id": payment.checkout_request_id}, status=status.HTTP_201_CREATED)
+                             "checkout_request_id": payment.checkout_request_id,
+                             "amount_kes": str(payment.amount), "credits_awarded": str(payment.credits_awarded),
+                             "conversion_rate": str(payment.conversion_rate)}, status=status.HTTP_201_CREATED)
         except Exception as exc:
             # An exception after submission may mean Safaricom accepted it.
             with transaction.atomic():
@@ -220,17 +229,11 @@ class AdminReconcilePaymentView(APIView):
                 if payment.status == "completed":
                     return Response({"status": "completed"})
                 try:
-                    with transaction.atomic():
-                        payment.mpesa_receipt_number = receipt
-                        payment.status = "completed"
-                        payment.result_description = str(provider_data)[:2000]
-                        payment.save(update_fields=["mpesa_receipt_number", "status", "result_description", "updated_at"])
-                        add_credits(payment.user, payment.amount, transaction_type="topup",
-                                    description=f"M-Pesa top-up {receipt}", idempotency_key=f"topup:payment:{payment.pk}")
-                except IntegrityError:
+                    settle_mpesa_payment(payment.pk, receipt, provider_data)
+                except (IntegrityError, ValueError):
                     payment.refresh_from_db()
                     payment.status = "outcome_unknown"
-                    payment.result_description = "Verified receipt conflicts with another payment."
+                    payment.result_description = "Verified receipt conflicts with another payment or settlement could not be completed."
                     payment.save(update_fields=["status", "result_description", "updated_at"])
                     return Response({"status": "outcome_unknown", "message": "Receipt discrepancy recorded."}, status=202)
         except MpesaPayment.DoesNotExist:
@@ -332,17 +335,11 @@ def mpesa_callback(request):
                 payment.save(update_fields=["status", "result_code", "result_description", "updated_at"])
                 return Response({"ResultCode": 0, "ResultDesc": "Receipt discrepancy recorded."})
             try:
-                with transaction.atomic():
-                    payment.mpesa_receipt_number = receipt
-                    payment.status = "completed"
-                    payment.result_description = str(verification_data)[:2000]
-                    payment.save(update_fields=["status", "result_code", "result_description", "mpesa_receipt_number", "callback_data", "updated_at"])
-                    add_credits(payment.user, payment.amount, transaction_type="topup",
-                                description=f"M-Pesa top-up {receipt}", idempotency_key=f"topup:payment:{payment.pk}")
-            except IntegrityError:
+                settle_mpesa_payment(payment.pk, receipt, verification_data)
+            except (IntegrityError, ValueError):
                 payment.refresh_from_db()
                 payment.status = "outcome_unknown"
-                payment.result_description = "Provider receipt conflicts with another recorded payment."
+                payment.result_description = "Provider receipt conflicts with another recorded payment or settlement could not be completed."
                 payment.save(update_fields=["status", "result_description", "updated_at"])
                 return Response({"ResultCode": 0, "ResultDesc": "Receipt discrepancy recorded."})
     except MpesaPayment.DoesNotExist:

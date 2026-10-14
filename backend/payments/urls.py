@@ -13,8 +13,15 @@ from .views import (
     b2c_timeout_callback,
     mpesa_callback,
 )
+from .share_views import ShareCollection, ShareRevoke, PublicShareDetail, GuestPaymentCreate, GuestPaymentStatus, GuestContentView
 
 urlpatterns = [
+    path("shares/", ShareCollection.as_view(), name="shared-content-list-create"),
+    path("shares/<int:share_id>/revoke/", ShareRevoke.as_view(), name="shared-content-revoke"),
+    path("shared/<str:token>/", PublicShareDetail.as_view(), name="shared-content-detail"),
+    path("shared/<str:token>/payments/", GuestPaymentCreate.as_view(), name="shared-content-payment"),
+    path("guest-payments/<str:token>/", GuestPaymentStatus.as_view(), name="guest-payment-status"),
+    path("guest-access/<str:token>/", GuestContentView.as_view(), name="guest-content-access"),
     path(
         "mpesa/initiate/",
         InitiateMpesaPaymentView.as_view(),

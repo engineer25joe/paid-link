@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
+from django.core.exceptions import ValidationError
 
 
 def effective_role(user):
@@ -75,6 +76,12 @@ class CreditTransaction(models.Model):
         max_digits=12,
         decimal_places=2,
     )
+    balance_before = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    administrator = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name="credit_adjustments")
+    reason = models.CharField(max_length=255, blank=True)
+    amount_kes = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    conversion_rate = models.DecimalField(max_digits=12, decimal_places=4, null=True, blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
     description = models.CharField(
         max_length=255,
         blank=True,
@@ -87,6 +94,14 @@ class CreditTransaction(models.Model):
         unique=True,
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk and CreditTransaction.objects.filter(pk=self.pk).exists():
+            raise ValidationError("Wallet audit entries are immutable.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Wallet audit entries cannot be deleted.")
 
     def __str__(self):
         return f"{self.user.username} - {self.transaction_type} - {self.amount}"
@@ -108,3 +123,31 @@ class CreatorApplication(models.Model):
             fields=["applicant"], condition=models.Q(status__in=["pending", "approved"]),
             name="one_active_creator_application_per_user",
         )]
+
+
+class PlatformSettings(models.Model):
+    credit_to_kes_rate = models.DecimalField(max_digits=12, decimal_places=4, default=2)
+    updated_by = models.ForeignKey(User, on_delete=models.PROTECT, null=True, blank=True, related_name="platform_setting_changes")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @classmethod
+    def current(cls):
+        setting, _ = cls.objects.get_or_create(pk=1)
+        return setting
+
+
+class CreditRateHistory(models.Model):
+    rate = models.DecimalField(max_digits=12, decimal_places=4)
+    changed_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name="credit_rate_changes")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if self.pk and CreditRateHistory.objects.filter(pk=self.pk).exists():
+            raise ValidationError("Credit-rate history is immutable.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Credit-rate history cannot be deleted.")

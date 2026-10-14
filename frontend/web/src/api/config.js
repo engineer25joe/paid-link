@@ -22,6 +22,13 @@ export const API_PATHS = {
   initiateTopup: '/api/payments/mpesa/initiate/', creatorApplicationsAdmin: '/api/admin/creator-applications/',
   contentCreate: '/api/content/create/', creatorEarnings: '/api/accounts/creator/earnings/summary/',
   creatorContentEarnings: '/api/accounts/creator/earnings/content/', adminDashboard: '/api/admin/dashboard/',
+  walletTransactions: '/api/accounts/wallet/transactions/', creditRate: '/api/accounts/credit-rate/',
+  adminWalletUsers: '/api/admin/wallet/users/', adminCreditRate: '/api/admin/settings/credit-rate/',
+  shareCollection: '/api/payments/shares/',
+  sharedContent: (token) => `/api/payments/shared/${encodeURIComponent(token)}/`,
+  guestPayment: (token) => `/api/payments/shared/${encodeURIComponent(token)}/payments/`,
+  guestPaymentStatus: (token) => `/api/payments/guest-payments/${encodeURIComponent(token)}/`,
+  guestContent: (token) => `/api/payments/guest-access/${encodeURIComponent(token)}/`,
   contentAccess: (id) => `/api/content/${id}/access/`, purchase: (id) => `/api/purchases/${id}/purchase/`,
   contentUpdate: (id) => `/api/content/${id}/update/`, contentPublish: (id) => `/api/content/${id}/publish/`,
 };

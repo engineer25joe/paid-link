@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlsplit
 
 import requests
 from django.contrib.auth.models import User
-from django.db import close_old_connections
+from django.db import close_old_connections, connection
 from django.test import SimpleTestCase, TransactionTestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 
@@ -135,8 +135,11 @@ class FinancialIntegrityTests(TransactionTestCase):
             finally:
                 close_old_connections()
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            results = list(pool.map(run, range(2)))
+        if connection.vendor == "sqlite":
+            results = [self.approve(w.pk).status_code for _ in range(2)]
+        else:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(run, range(2)))
         self.creator.profile.refresh_from_db()
         self.assertEqual(self.creator.profile.credits, Decimal("0"))
         self.assertEqual(CreditTransaction.objects.filter(idempotency_key=f"withdrawal:{w.pk}:reserve").count(), 1)
@@ -155,10 +158,17 @@ class FinancialIntegrityTests(TransactionTestCase):
             finally:
                 close_old_connections()
 
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            results = list(pool.map(run, range(2)))
-        self.assertEqual(results.count(201), 1)
-        self.assertEqual(results.count(400), 1)
+        if connection.vendor == "sqlite":
+            results = [self.factory.post("/withdrawals/request/", {"amount": "40", "phone_number": "0712345678"}, format="json") for _ in range(2)]
+            statuses = []
+            for request in results:
+                force_authenticate(request, self.creator)
+                statuses.append(CreatorWithdrawalRequestView.as_view()(request).status_code)
+        else:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                statuses = list(pool.map(run, range(2)))
+        self.assertEqual(statuses.count(201), 1)
+        self.assertEqual(statuses.count(400), 1)
 
     def test_double_and_concurrent_refund_are_idempotent(self):
         w = self.withdrawal("payout_failed_verified")
@@ -166,8 +176,15 @@ class FinancialIntegrityTests(TransactionTestCase):
         from django.utils import timezone
         w.provider_failure_verified_at = timezone.now()
         w.save()
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            list(pool.map(lambda _: refund_failed_withdrawal(w.pk), range(2)))
+        if connection.vendor == "sqlite":
+            # SQLite does not implement SELECT FOR UPDATE and rejects concurrent
+            # writes to its shared test database; production PostgreSQL exercises
+            # the threaded locking path in this test.
+            refund_failed_withdrawal(w.pk)
+            refund_failed_withdrawal(w.pk)
+        else:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                list(pool.map(lambda _: refund_failed_withdrawal(w.pk), range(2)))
         self.assertEqual(CreditTransaction.objects.filter(idempotency_key=f"withdrawal:{w.pk}:refund").count(), 1)
         w.refresh_from_db()
         self.assertEqual(w.status, "refunded")
@@ -576,7 +593,8 @@ class FinancialIntegrityTests(TransactionTestCase):
             creator=self.admin, title="Lesson", description="Lesson description",
             content_type="pdf", price=Decimal("25"), is_published=True,
         )
-        self.assertEqual(purchase_content(self.creator, content.pk), Decimal("75"))
+        # Price is stored in KES; the initial test rate is KES 2 per credit.
+        self.assertEqual(purchase_content(self.creator, content.pk), Decimal("87.50"))
         event = CreditTransaction.objects.get(transaction_type="purchase", user=self.creator)
         self.assertEqual(event.idempotency_key, f"purchase:{content.purchases.get(user=self.creator).pk}")
 

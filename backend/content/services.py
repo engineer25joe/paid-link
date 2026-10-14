@@ -73,7 +73,7 @@ def upload_content_file(file, content_type):
     }
 
 
-def generate_private_content_url(content):
+def generate_private_content_url(content, expires_in_seconds=900):
     if not content.cloudinary_public_id:
         raise ValueError("Content file is not available.")
 
@@ -86,9 +86,9 @@ def generate_private_content_url(content):
     else:
         raise ValueError("Unsupported content type.")
 
-    expires_at = int(
-        (datetime.now(timezone.utc) + timedelta(minutes=15)).timestamp()
-    )
+    if not isinstance(expires_in_seconds, int) or expires_in_seconds < 1 or expires_in_seconds > 900:
+        raise ValueError("Protected content URL expiry must be between 1 and 900 seconds.")
+    expires_at = int((datetime.now(timezone.utc) + timedelta(seconds=expires_in_seconds)).timestamp())
 
     return cloudinary.utils.private_download_url(
         content.cloudinary_public_id,

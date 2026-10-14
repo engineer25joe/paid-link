@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .views import RegisterView, ProfileView, CreatorApplicationView, WalletHistoryView, ThrottledTokenObtainPairView
+from .views import RegisterView, ProfileView, CreatorApplicationView, WalletHistoryView, PublicCreditRateView, ThrottledTokenObtainPairView
 from .earnings import (
     CreatorEarningsSummaryView,
     CreatorEarningsByContentView,
@@ -17,6 +17,7 @@ urlpatterns = [
     path("profile/", ProfileView.as_view(), name="profile"),
     path("creator/applications/", CreatorApplicationView.as_view(), name="creator-applications"),
     path("wallet/transactions/", WalletHistoryView.as_view(), name="wallet-transactions"),
+    path("credit-rate/", PublicCreditRateView.as_view(), name="credit-rate"),
     path("creator/earnings/summary/", CreatorEarningsSummaryView.as_view(), name="creator-earnings-summary"),
     path("creator/earnings/content/", CreatorEarningsByContentView.as_view(), name="creator-earnings-by-content"),
     path("creator/transactions/", CreatorTransactionHistoryView.as_view(), name="creator-transaction-history"),
