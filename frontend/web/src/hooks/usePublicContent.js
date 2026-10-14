@@ -9,7 +9,11 @@ export function usePublicContent() {
   useEffect(() => {
     let active = true;
     getPublicContent().then((result) => {
-      if (active) { setItems(Array.isArray(result) ? result : []); setStatus({ loading: false, error: '' }); }
+      if (active && !Array.isArray(result)) {
+        setStatus({ loading: false, error: 'The server returned an unexpected catalogue response. Please retry or return later.' });
+        return;
+      }
+      if (active) { setItems(result); setStatus({ loading: false, error: '' }); }
     }).catch((error) => {
       if (active) setStatus({ loading: false, error: getApiErrorMessage(error.data, error.message) });
     });
