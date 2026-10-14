@@ -8,7 +8,9 @@ def migrate_legacy_credit_prices(apps, schema_editor):
     # Legacy price values were credits. At the initial KES 2/credit rate,
     # multiply once so old listings preserve their credit equivalent.
     for item in Content.objects.all().iterator():
-        item.price_kes = (item.price * Decimal("2.0000")).quantize(Decimal("0.01"))
+        # RenameField above has already changed the historical model state,
+        # so the old value is available as price_kes inside this data step.
+        item.price_kes = (item.price_kes * Decimal("2.0000")).quantize(Decimal("0.01"))
         item.save(update_fields=["price_kes"])
 
 
