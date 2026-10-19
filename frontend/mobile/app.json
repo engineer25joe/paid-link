@@ -34,12 +34,12 @@
             {
               "scheme": "https",
               "host": "paidlinkweb.onrender.com",
-              "pathPrefix": "/shared"
+              "pathPrefix": "/shared/"
             },
             {
               "scheme": "https",
               "host": "paidlinkweb.onrender.com",
-              "pathPrefix": "/guest-access"
+              "pathPrefix": "/guest-access/"
             }
           ],
           "category": [
