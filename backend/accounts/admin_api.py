@@ -20,6 +20,10 @@ from .models import CreditTransaction, CreditRateHistory, PlatformSettings, Crea
 from .services import adjust_credits, validate_credits
 from decimal import InvalidOperation
 import uuid
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class IsPlatformAdmin(permissions.BasePermission):
@@ -321,12 +325,18 @@ class AdminWalletAdjustment(APIView):
             return Response({"error": "Choose add or remove and provide a reason of at most 255 characters."}, status=400)
         try:
             amount = validate_credits(request.data.get("amount"))
-            key = str(uuid.UUID(key)) if key else str(uuid.uuid4())
+            # Require the client to retain this key across retries, so a lost
+            # response cannot turn one admin action into two balance changes.
+            key = str(uuid.UUID(key))
         except (ValueError, TypeError, InvalidOperation, AttributeError):
             return Response({"error": "Enter a valid positive amount and adjustment reference."}, status=400)
         try:
             with transaction.atomic():
-                target = User.objects.select_for_update().select_related("profile").get(pk=user_id)
+                # Lock only the User row here. Joining its reverse one-to-one
+                # profile makes PostgreSQL generate FOR UPDATE on a nullable
+                # outer-join side, which PostgreSQL rejects. adjust_credits
+                # then locks the profile row before changing its balance.
+                target = User.objects.select_for_update().get(pk=user_id)
                 signed_amount = amount if direction == "add" else -amount
                 balance = adjust_credits(target, signed_amount, reason,
                     f"admin-adjustment:{key}", administrator=request.user, reason=reason)
@@ -335,6 +345,12 @@ class AdminWalletAdjustment(APIView):
             return Response({"error": "User not found."}, status=404)
         except ValueError as error:
             return Response({"error": str(error)}, status=400)
+        except Exception:
+            # Keep diagnostics useful without logging request bodies, tokens,
+            # idempotency keys, or database credentials.
+            logger.exception("Admin wallet adjustment failed (admin_id=%s, target_user_id=%s)",
+                             request.user.pk, user_id)
+            return Response({"error": "Unable to adjust credits. Please try again."}, status=500)
         return Response({"status": "completed", "user": target.username, "amount": str(entry.amount),
             "balance_before": str(entry.balance_before), "balance_after": str(balance), "reason": entry.reason})
 

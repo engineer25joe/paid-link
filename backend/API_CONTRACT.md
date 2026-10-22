@@ -82,10 +82,12 @@ Callback tokens are bearer credentials embedded in callback URLs. Never expose t
 
 ### Admin management and monitoring
 
-All endpoints below require authenticated `UserProfile.role=admin`. List responses use the pagination envelope above; page size defaults to 50, maximum 100. Supported common query parameters: `page`, `page_size`, `search` where listed, and exact-match filters below. Detail requests return a single object. Tokens, password hashes, provider credentials, provider callback payloads, and internal transaction identifiers are excluded unless explicitly shown.
+All endpoints below require an authenticated administrator (`UserProfile.role=admin` or a Django superuser, whose effective API role is `admin`). List responses use the pagination envelope above; page size defaults to 50, maximum 100. Supported common query parameters: `page`, `page_size`, `search` where listed, and exact-match filters below. Detail requests return a single object. Tokens, password hashes, provider credentials, provider callback payloads, and internal transaction identifiers are excluded unless explicitly shown.
 
 | Method and endpoint | Query parameters | Successful response fields |
 |---|---|---|
+| `GET /api/admin/wallet/users/?search=<query>` | `search` (at least two characters) | `{results:[{id, username, email, first_name, last_name, role, credits}]}`. |
+| `POST /api/admin/wallet/users/<id>/adjust/` | JSON body `{direction: "add"|"remove", amount: positive decimal string or number, reason: nonempty string (max 255), idempotency_key: UUID}` | `{status, user, amount, balance_before, balance_after, reason}`. Replay the same key and payload after an uncertain response; it will not apply the adjustment twice. Missing or invalid keys are rejected. |
 | `GET /api/admin/dashboard/` | None | `{total_users, learners, creators, published_content, total_purchases, total_purchase_value, pending_withdrawals, unresolved_payment_records}`. |
 | `GET /api/admin/users/`, `GET /api/admin/users/<id>/` | List: `search`, `role`, `is_active` | `{id, username, email, first_name, last_name, is_active, date_joined, role, phone_number (masked), credits, is_verified}`. |
 | `GET /api/admin/creators/`, `GET /api/admin/creators/<id>/` | List: `search` | User fields above, only creator role. |

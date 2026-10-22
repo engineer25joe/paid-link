@@ -18,7 +18,7 @@ function fromCents(cents) {
 }
 
 function errorMessage(error) {
-  if (error?.status >= 500) return 'The adjustment could not be completed. Please try again or contact support.';
+  if (error?.status >= 500) return 'Unable to adjust credits. Please try again.';
   if (error instanceof TypeError) return 'Could not reach the server. Check your connection and try again.';
   return getApiErrorMessage(error?.data, error?.message || 'The adjustment could not be completed.');
 }
@@ -30,6 +30,7 @@ export function AdminWalletPage() {
   const [direction, setDirection] = useState('add');
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
+  const [idempotencyKey, setIdempotencyKey] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [state, setState] = useState({ busy: false, error: '', result: '' });
 
@@ -58,16 +59,19 @@ export function AdminWalletPage() {
     if (!selected || !validAdjustment) return;
     setState((current) => ({ ...current, busy: true, error: '', result: '' }));
     try {
+      const key = idempotencyKey || createIdempotencyKey();
+      setIdempotencyKey(key);
       const result = await api.post(API_PATHS.adminWalletAdjustment(selected.id), {
         direction,
         amount,
         reason: reason.trim(),
-        idempotency_key: createIdempotencyKey(),
+        idempotency_key: key,
       });
       const updated = { ...selected, credits: result.balance_after };
       setSelected(updated);
       setUsers((current) => current.map((user) => user.id === updated.id ? updated : user));
       setState({ busy: false, error: '', result: `Credit adjustment completed. New balance: ${result.balance_after} credits.` });
+      setIdempotencyKey(null);
       setAmount('');
       setReason('');
       setConfirming(false);
@@ -84,7 +88,7 @@ export function AdminWalletPage() {
       <button className="button button-light" disabled={state.busy}>Search</button>
     </form>
     {users.map((user) => <button type="button" className="wallet-user-row" key={user.id} onClick={() => {
-      setSelected(user); setConfirming(false); setState({ busy: false, error: '', result: '' });
+      setSelected(user); setIdempotencyKey(null); setConfirming(false); setState({ busy: false, error: '', result: '' });
     }}>
       <strong>{user.username}</strong><span>{user.email}</span><b>{user.credits} credits</b>
     </button>)}
@@ -95,11 +99,11 @@ export function AdminWalletPage() {
       <p>Current balance: <strong>{selected.credits} credits</strong></p>
       <fieldset>
         <legend>Adjustment</legend>
-        <label><input type="radio" name="wallet-direction" value="add" checked={direction === 'add'} onChange={() => { setDirection('add'); setConfirming(false); }}/> Add credits</label>
-        <label><input type="radio" name="wallet-direction" value="remove" checked={direction === 'remove'} onChange={() => { setDirection('remove'); setConfirming(false); }}/> Remove credits</label>
+        <label><input type="radio" name="wallet-direction" value="add" checked={direction === 'add'} onChange={() => { setDirection('add'); setIdempotencyKey(null); setConfirming(false); }}/> Add credits</label>
+        <label><input type="radio" name="wallet-direction" value="remove" checked={direction === 'remove'} onChange={() => { setDirection('remove'); setIdempotencyKey(null); setConfirming(false); }}/> Remove credits</label>
       </fieldset>
-      <label>Amount in credits<input type="number" min="0.01" max="9999999999.99" step="0.01" required value={amount} onChange={(event) => { setAmount(event.target.value); setConfirming(false); }}/></label>
-      <label>Required reason<textarea maxLength="255" required value={reason} onChange={(event) => { setReason(event.target.value); setConfirming(false); }}/></label>
+      <label>Amount in credits<input type="number" min="0.01" max="9999999999.99" step="0.01" required value={amount} onChange={(event) => { setAmount(event.target.value); setIdempotencyKey(null); setConfirming(false); }}/></label>
+      <label>Required reason<textarea maxLength="255" required value={reason} onChange={(event) => { setReason(event.target.value); setIdempotencyKey(null); setConfirming(false); }}/></label>
       <p>New balance: <strong>{nextBalance === null ? '—' : `${fromCents(nextBalance)} credits`}</strong></p>
       {confirming ? <div className="notice" role="dialog" aria-modal="true" aria-labelledby="wallet-confirm-title">
         <h3 id="wallet-confirm-title">Confirm credit adjustment</h3>
