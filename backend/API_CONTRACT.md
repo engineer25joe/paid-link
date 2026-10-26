@@ -65,7 +65,7 @@ Content response fields are `id`, `creator`, `creator_username`, `title`, `descr
 
 | Method and endpoint | Authentication/role | Request | Success |
 |---|---|---|---|
-| `POST /api/payments/mpesa/initiate/` | Any authenticated user | JSON `{amount, phone_number}`; valid whole-KES amount and Kenyan phone required | 201 `{payment_id, status, checkout_request_id}`; uncertain provider response returns 202 `{payment_id, status, message}`. This endpoint initiates a real provider operation when configured. |
+| `POST /api/payments/mpesa/initiate/` | Any authenticated user | JSON `{amount, phone_number, idempotency_key}`; valid whole-KES amount, Kenyan phone, and client-generated UUID v4 required | 201 `{payment_id, status, checkout_request_id, amount_kes, credits_awarded, conversion_rate, reused}`; an identical retry returns the existing payment (200, `reused: true`) without another STK request; same key with changed amount/phone returns 409; uncertain provider response returns 202. The key is scoped to the user and wallet-top-up operation. |
 | `POST /api/payments/withdrawals/request/` | Creator only | JSON `{amount, phone_number}` | 201 `{withdrawal: {id, amount, phone_number, status}}`; reserves are not made until admin approval. |
 | `GET /api/payments/withdrawals/` | Admin role | None | 200 `{withdrawals: [...]}`. Legacy unpaginated admin list; phone numbers are currently unmasked on this legacy route. Prefer `/api/admin/withdrawals/`. |
 | `POST /api/payments/withdrawals/<withdrawal_id>/approve/` | Admin role | Empty body | 200 `{message, withdrawal_id, status, remaining_credits}`; reserves balance using the financial service. |

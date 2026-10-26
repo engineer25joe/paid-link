@@ -27,7 +27,11 @@ export const runAdminWithdrawalAction = (id, action) => {
 };
 export const getWallet = () => api.get(API_PATHS.walletTransactions);
 export const getCreditRate = () => api.get(API_PATHS.creditRate, { authenticated: false });
-export const initiateTopup = (amount, phone_number) => api.post(API_PATHS.initiateTopup, { amount, phone_number });
+export const initiateTopup = (amount, phone_number, idempotencyKey) => api.post(API_PATHS.initiateTopup, {
+  amount,
+  phone_number,
+  idempotency_key: idempotencyKey,
+});
 export const getShares = () => api.get(API_PATHS.shareCollection);
 export const createShare = (payload) => api.post(API_PATHS.shareCollection, payload);
 export const revokeShare = (id) => api.post(`${API_PATHS.shareCollection}${id}/revoke/`, {});

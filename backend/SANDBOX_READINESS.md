@@ -14,7 +14,7 @@ The application logging filter redacts `callback_token` query parameter values f
 
 ## M-Pesa environment variables
 
-`MPESA_ENVIRONMENT` accepts `sandbox` (default) or `production`. The selected host is used for OAuth, STK, B2C, and transaction-status requests. Do not set it to `production` during sandbox work.
+`MPESA_ENVIRONMENT` accepts only `sandbox` (the default) or `production`; a missing or misspelled value never selects a provider host. Sandbox selects `https://sandbox.safaricom.co.ke`. Production selects `https://api.safaricom.co.ke` only when `MPESA_ALLOW_PRODUCTION=true`; the separate guard defaults to false. Django test runs force that guard off even if the environment variable is true. Keep `MPESA_ENVIRONMENT=sandbox` and `MPESA_ALLOW_PRODUCTION=false` for sandbox work. To authorize a future production operation, an authorized operator must deliberately set both `MPESA_ENVIRONMENT=production` and `MPESA_ALLOW_PRODUCTION=true` in the protected deployment environment after independent approval; do not enable this for sandbox testing.
 
 | Variable | Purpose |
 |---|---|

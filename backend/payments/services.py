@@ -15,7 +15,19 @@ from accounts.services import add_credits, validate_b2c_amount, validate_money, 
 from .models import CreatorWithdrawal, GuestContentAccess, MpesaPayment, SharedContentShare
 
 
+class ProductionProviderAccessDisabled(RuntimeError):
+    """Raised before network I/O when production M-Pesa access is not enabled."""
+
+
+def ensure_mpesa_provider_access():
+    if settings.MPESA_ENVIRONMENT == "production" and (
+        not settings.MPESA_ALLOW_PRODUCTION or settings.MPESA_IS_TESTING
+    ):
+        raise ProductionProviderAccessDisabled("Production M-Pesa access is disabled.")
+
+
 def get_mpesa_access_token():
+    ensure_mpesa_provider_access()
     response = requests.get(
         f"{settings.MPESA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials",
         auth=(settings.MPESA_CONSUMER_KEY, settings.MPESA_CONSUMER_SECRET),

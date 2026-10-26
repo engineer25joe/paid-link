@@ -3,6 +3,9 @@ from decimal import Decimal
 import os
 from unittest.mock import Mock, patch
 import secrets
+import threading
+import unittest
+import uuid
 from urllib.parse import parse_qs, urlsplit
 
 import requests
@@ -69,6 +72,15 @@ class FinancialIntegrityTests(TransactionTestCase):
             ]}
         request = self.factory.post("/mpesa/b2c/result/?callback_token=" + withdrawal.callback_token, {"Result": result}, format="json")
         return b2c_result_callback(request)
+
+    def initiate_topup(self, *, key=None, amount="50", phone="0712345678", user=None):
+        from payments.views import InitiateMpesaPaymentView
+        request = self.factory.post("/mpesa/initiate/", {
+            "amount": amount, "phone_number": phone,
+            "idempotency_key": str(key or uuid.uuid4()),
+        }, format="json")
+        force_authenticate(request, user or self.creator)
+        return InitiateMpesaPaymentView.as_view()(request)
 
     def b2c_status_callback(self, withdrawal, result_code, **params):
         result = {"OriginalConversationID": withdrawal.originator_conversation_id,
@@ -385,6 +397,7 @@ class FinancialIntegrityTests(TransactionTestCase):
         self.assertEqual(w.status, "paid")
         self.assertEqual(CreditTransaction.objects.filter(idempotency_key=f"withdrawal:{w.pk}:refund").count(), 0)
 
+    @unittest.skipUnless(connection.vendor == "postgresql", "SQLite cannot model PostgreSQL row-lock concurrency")
     def test_concurrent_conflicting_b2c_callbacks_have_one_terminal_result(self):
         self.creator.profile.credits = Decimal("0")
         self.creator.profile.save()
@@ -484,10 +497,91 @@ class FinancialIntegrityTests(TransactionTestCase):
 
     def test_fractional_zero_negative_and_invalid_api_amounts_rejected(self):
         for amount in ("0", "-5", "1.25", "NaN", "Infinity", "250001"):
-            request = self.factory.post("/mpesa/initiate/", {"amount": amount, "phone_number": "0712345678"}, format="json")
-            force_authenticate(request, self.creator)
-            response = __import__("payments.views", fromlist=["InitiateMpesaPaymentView"]).InitiateMpesaPaymentView.as_view()(request)
+            response = self.initiate_topup(amount=amount)
             self.assertEqual(response.status_code, 400, amount)
+
+    def test_topup_requires_a_client_generated_uuid_v4_key(self):
+        from payments.views import InitiateMpesaPaymentView
+        request = self.factory.post("/mpesa/initiate/", {"amount": "50", "phone_number": "0712345678"}, format="json")
+        force_authenticate(request, self.creator)
+        with patch("payments.views.initiate_stk_push") as initiate:
+            self.assertEqual(InitiateMpesaPaymentView.as_view()(request).status_code, 400)
+        initiate.assert_not_called()
+        self.assertEqual(MpesaPayment.objects.count(), 0)
+
+    def test_topup_idempotent_sequential_retry_returns_existing_without_second_stk(self):
+        key = uuid.uuid4()
+        provider_result = {"ResponseCode": "0", "CheckoutRequestID": "idem-checkout"}
+        with patch("payments.views.initiate_stk_push", return_value=provider_result) as initiate:
+            first = self.initiate_topup(key=key)
+            second = self.initiate_topup(key=key)
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(first.data["payment_id"], second.data["payment_id"])
+        self.assertTrue(second.data["reused"])
+        self.assertEqual(MpesaPayment.objects.count(), 1)
+        self.assertEqual(initiate.call_count, 1)
+
+    def test_topup_idempotency_key_reuse_with_changed_payload_conflicts(self):
+        key = uuid.uuid4()
+        with patch("payments.views.initiate_stk_push", return_value={"ResponseCode": "0"}) as initiate:
+            first = self.initiate_topup(key=key, amount="50")
+            changed = self.initiate_topup(key=key, amount="60")
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(changed.status_code, 409)
+        self.assertEqual(MpesaPayment.objects.count(), 1)
+        self.assertEqual(initiate.call_count, 1)
+
+    def test_topup_idempotency_key_is_scoped_to_authenticated_user(self):
+        key = uuid.uuid4()
+        with patch("payments.views.initiate_stk_push", return_value={"ResponseCode": "0"}) as initiate:
+            creator_payment = self.initiate_topup(key=key)
+            admin_payment = self.initiate_topup(key=key, user=self.admin)
+        self.assertEqual(creator_payment.status_code, 201)
+        self.assertEqual(admin_payment.status_code, 201)
+        self.assertNotEqual(creator_payment.data["payment_id"], admin_payment.data["payment_id"])
+        self.assertEqual(MpesaPayment.objects.count(), 2)
+        self.assertEqual(initiate.call_count, 2)
+
+    @unittest.skipUnless(connection.vendor == "postgresql", "requires PostgreSQL row-lock/unique-conflict behavior")
+    def test_concurrent_duplicate_topup_initiation_sends_one_stk_request(self):
+        key = uuid.uuid4()
+        start = threading.Barrier(2)
+
+        def submit():
+            close_old_connections()
+            try:
+                start.wait(timeout=10)
+                return self.initiate_topup(key=key).status_code
+            finally:
+                close_old_connections()
+
+        with patch("payments.views.initiate_stk_push", return_value={"ResponseCode": "0"}) as initiate:
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                statuses = list(pool.map(lambda _: submit(), range(2)))
+        self.assertCountEqual(statuses, [200, 201])
+        self.assertEqual(MpesaPayment.objects.count(), 1)
+        self.assertEqual(initiate.call_count, 1)
+
+    def test_production_provider_access_is_denied_before_payment_creation_or_network(self):
+        from django.test import override_settings
+        key = uuid.uuid4()
+        with override_settings(MPESA_ENVIRONMENT="production", MPESA_ALLOW_PRODUCTION=True), \
+             patch("payments.views.initiate_stk_push") as initiate:
+            response = self.initiate_topup(key=key)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.data["error"], "Production M-Pesa access is disabled.")
+        self.assertEqual(MpesaPayment.objects.count(), 0)
+        initiate.assert_not_called()
+
+    @patch("payments.services.requests.get")
+    def test_production_access_guard_blocks_oauth_before_network_even_when_setting_overridden(self, get):
+        from django.test import override_settings
+        from payments.services import ProductionProviderAccessDisabled, get_mpesa_access_token
+        with override_settings(MPESA_ENVIRONMENT="production", MPESA_ALLOW_PRODUCTION=True):
+            with self.assertRaises(ProductionProviderAccessDisabled):
+                get_mpesa_access_token()
+        get.assert_not_called()
 
     def test_stk_duplicate_success_credits_once(self):
         payment = MpesaPayment.objects.create(user=self.creator, phone_number="254712345678", amount=Decimal("50"), checkout_request_id="checkout-1", callback_token=secrets.token_hex(32))
@@ -545,7 +639,7 @@ class FinancialIntegrityTests(TransactionTestCase):
 
     def test_stk_phone_is_normalized_and_invalid_phone_rejected_before_payment_creation(self):
         from payments.views import InitiateMpesaPaymentView
-        request = self.factory.post("/mpesa/initiate/", {"amount": "50", "phone_number": "0712345678"}, format="json")
+        request = self.factory.post("/mpesa/initiate/", {"amount": "50", "phone_number": "0712345678", "idempotency_key": str(uuid.uuid4())}, format="json")
         force_authenticate(request, self.creator)
         from django.test import override_settings
         with override_settings(MPESA_CALLBACK_URL="https://example.test/callback"), \
@@ -553,7 +647,7 @@ class FinancialIntegrityTests(TransactionTestCase):
             response = InitiateMpesaPaymentView.as_view()(request)
         self.assertEqual(response.status_code, 201, response.data)
         self.assertEqual(MpesaPayment.objects.get(pk=response.data["payment_id"]).phone_number, "254712345678")
-        request = self.factory.post("/mpesa/initiate/", {"amount": "50", "phone_number": "not-a-phone"}, format="json")
+        request = self.factory.post("/mpesa/initiate/", {"amount": "50", "phone_number": "not-a-phone", "idempotency_key": str(uuid.uuid4())}, format="json")
         force_authenticate(request, self.creator)
         before = MpesaPayment.objects.count()
         self.assertEqual(InitiateMpesaPaymentView.as_view()(request).status_code, 400)
@@ -571,7 +665,7 @@ class FinancialIntegrityTests(TransactionTestCase):
     @patch("payments.views.initiate_stk_push", side_effect=requests.Timeout("mock timeout"))
     def test_stk_uncertain_response_is_not_classified_as_definite_failure(self, _initiate):
         from payments.views import InitiateMpesaPaymentView
-        request = self.factory.post("/mpesa/initiate/", {"amount": "50", "phone_number": "0712345678"}, format="json")
+        request = self.factory.post("/mpesa/initiate/", {"amount": "50", "phone_number": "0712345678", "idempotency_key": str(uuid.uuid4())}, format="json")
         force_authenticate(request, self.creator)
         response = InitiateMpesaPaymentView.as_view()(request)
         payment = MpesaPayment.objects.get(pk=response.data["payment_id"])
@@ -629,7 +723,7 @@ class PasswordContractTests(TransactionTestCase):
 
 class ConfigurationContractTests(SimpleTestCase):
     def test_environment_helpers_and_mpesa_environment_selection(self):
-        from config.settings import env_bool, env_csv, mpesa_base_url
+        from config.settings import env_bool, env_csv, is_test_command, mpesa_base_url
         from unittest.mock import patch as env_patch
 
         with env_patch.dict(os.environ, {
@@ -640,5 +734,7 @@ class ConfigurationContractTests(SimpleTestCase):
             self.assertEqual(env_csv("PAIDLINK_TEST_LIST"), ["https://one.example", "https://two.example"])
         self.assertEqual(mpesa_base_url("sandbox"), "https://sandbox.safaricom.co.ke")
         self.assertEqual(mpesa_base_url("production"), "https://api.safaricom.co.ke")
+        self.assertTrue(is_test_command(["manage.py", "test"]))
+        self.assertTrue(is_test_command(["python", "-m", "pytest"]))
         with self.assertRaises(ValueError):
             mpesa_base_url("unknown")

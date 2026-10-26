@@ -12,5 +12,5 @@ test('uses randomUUID when the runtime provides it', () => {
 });
 
 test('fails safely when a secure random source is unavailable', () => {
-  assert.throws(() => createIdempotencyKey({}), /Secure credit adjustments/);
+  assert.throws(() => createIdempotencyKey({}), /Secure payment requests/);
 });

@@ -1,6 +1,7 @@
 import os
 import logging
 import re
+import sys
 from pathlib import Path
 
 import cloudinary
@@ -11,6 +12,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 
+def env_bool(name, default):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def is_test_command(argv=None):
+    """Detect common test entry points so they cannot enable live M-Pesa."""
+    arguments = sys.argv if argv is None else argv
+    names = {Path(str(argument)).stem.lower() for argument in arguments}
+    return bool(names & {"test", "pytest", "py.test"}) or any(
+        "pytest" in str(argument).lower() for argument in arguments
+    )
+
+
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
@@ -19,6 +36,8 @@ cloudinary.config(
 )
 
 MPESA_ENVIRONMENT = os.getenv("MPESA_ENVIRONMENT", "sandbox").strip().lower()
+MPESA_IS_TESTING = is_test_command()
+MPESA_ALLOW_PRODUCTION = env_bool("MPESA_ALLOW_PRODUCTION", False) and not MPESA_IS_TESTING
 MPESA_BASE_URLS = {
     "sandbox": "https://sandbox.safaricom.co.ke",
     "production": "https://api.safaricom.co.ke",
@@ -102,13 +121,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-def env_bool(name, default):
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def env_csv(name):
     return [item.strip() for item in os.getenv(name, "").split(",") if item.strip()]
 

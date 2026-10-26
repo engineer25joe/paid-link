@@ -2,6 +2,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from decimal import Decimal
+import uuid
 from unittest.mock import patch
 
 from .models import CreatorApplication, CreditTransaction
@@ -115,7 +116,7 @@ class CreatorWorkflowTests(TestCase):
     def test_topup_request_remains_pending_without_server_verified_callback(self):
         self.client.force_authenticate(self.learner)
         with patch("payments.views.initiate_stk_push", return_value={"ResponseCode": "0", "CheckoutRequestID": "checkout-test"}):
-            response = self.client.post("/api/payments/mpesa/initiate/", {"amount": "100", "phone_number": "254712345678"}, format="json")
+            response = self.client.post("/api/payments/mpesa/initiate/", {"amount": "100", "phone_number": "254712345678", "idempotency_key": str(uuid.uuid4())}, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["status"], "pending")
         self.learner.profile.refresh_from_db()

@@ -5,6 +5,7 @@ import { getApiErrorMessage } from '../api/errors.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { PageIntro } from '../components/PageIntro.jsx';
 import { estimateCredits } from '../hooks/useCountdown.js';
+import { createIdempotencyKey } from '../api/idempotency.js';
 
 export function WalletPage() {
   const { user, refreshProfile } = useAuth();
@@ -12,6 +13,7 @@ export function WalletPage() {
   const [rate, setRate] = useState('');
   const [amount, setAmount] = useState('');
   const [phone, setPhone] = useState(user?.phone_number || '');
+  const [requestKey, setRequestKey] = useState('');
   const [state, setState] = useState({ loading: true, busy: false, error: '', notice: '' });
 
   async function loadWallet() {
@@ -44,9 +46,13 @@ export function WalletPage() {
   async function topUp(event) {
     event.preventDefault(); setState((s) => ({ ...s, busy: true, error: '', notice: '' }));
     try {
-      const result = await initiateTopup(amount, phone);
+      const key = requestKey || createIdempotencyKey();
+      setRequestKey(key);
+      const result = await initiateTopup(amount, phone, key);
       setState((s) => ({ ...s, notice: `M-Pesa request started for KES ${result.amount_kes}. At the displayed rate, ${result.credits_awarded} credits will be added only after provider verification.` }));
       await loadWallet();
+      if (result.status === 'completed') await refreshProfile();
+      if (result.status !== 'outcome_unknown') setRequestKey('');
     } catch (error) { setState((s) => ({ ...s, error: getApiErrorMessage(error.data, error.message) })); }
     finally { setState((s) => ({ ...s, busy: false })); }
   }
@@ -56,9 +62,9 @@ export function WalletPage() {
     <PageIntro eyebrow="Credits" title="Your wallet" description="View your verified balance and wallet history."/>
     <div className="wallet-summary"><span>Credit balance</span><strong>{user?.credits ?? '—'} credits</strong><Link className="button button-primary" to="#top-up">Top Up Credits</Link></div>
     <form id="top-up" className="editor-form" onSubmit={topUp}><h2>Top up with M-Pesa</h2><p>Conversion rate: <strong>1 credit = KES {rate || '…'}</strong>. Credits are added only after M-Pesa verification.</p>
-      <label>Amount in KES<input required type="number" min="1" max="250000" step="1" value={amount} onChange={(e) => setAmount(e.target.value)}/></label>
+      <label>Amount in KES<input required type="number" min="1" max="250000" step="1" value={amount} onChange={(e) => { setAmount(e.target.value); setRequestKey(''); }}/></label>
       {estimated && <p>Estimated credit award: <strong>{estimated} credits</strong></p>}
-      <label>M-Pesa phone number<input required type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712345678"/></label>
+      <label>M-Pesa phone number<input required type="tel" autoComplete="tel" value={phone} onChange={(e) => { setPhone(e.target.value); setRequestKey(''); }} placeholder="0712345678"/></label>
       {state.error && <p className="notice notice-error" role="alert">{state.error}</p>}{state.notice && <p className="notice" role="status">{state.notice}</p>}
       <button className="button button-primary" disabled={state.busy || !amount || !phone}>{state.busy ? 'Starting M-Pesa request…' : 'Pay with M-Pesa'}</button>
     </form>

@@ -4,7 +4,7 @@ export function createIdempotencyKey(cryptoProvider = globalThis.crypto) {
     return cryptoProvider.randomUUID();
   }
   if (typeof cryptoProvider?.getRandomValues !== 'function') {
-    throw new Error('Secure credit adjustments are unavailable in this browser.');
+    throw new Error('Secure payment requests are unavailable in this browser.');
   }
 
   const bytes = cryptoProvider.getRandomValues(new Uint8Array(16));

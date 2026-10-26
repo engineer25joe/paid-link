@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 import secrets
+import uuid
 
 from django.db import IntegrityError, transaction
 from django.conf import settings
@@ -22,6 +23,8 @@ from .services import (
     verify_stk_transaction,
     request_b2c_status_reconciliation,
     settle_mpesa_payment,
+    ProductionProviderAccessDisabled,
+    ensure_mpesa_provider_access,
 )
 
 
@@ -30,6 +33,13 @@ class InitiateMpesaPaymentView(APIView):
 
     def post(self, request):
         try:
+            parsed_key = uuid.UUID(str(request.data.get("idempotency_key", "")))
+            if parsed_key.version != 4 or parsed_key.variant != uuid.RFC_4122:
+                raise ValueError
+            idempotency_key = str(parsed_key)
+        except (ValueError, TypeError, AttributeError):
+            return Response({"error": "A valid UUID v4 idempotency_key is required."}, status=400)
+        try:
             amount = validate_mpesa_amount(request.data.get("amount"))
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -37,14 +47,54 @@ class InitiateMpesaPaymentView(APIView):
             phone = normalize_mpesa_phone(request.data.get("phone_number", ""))
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        operation = "wallet_topup"
+        with transaction.atomic():
+            existing = MpesaPayment.objects.select_for_update().filter(
+                user=request.user, idempotency_operation=operation, idempotency_key=idempotency_key,
+            ).first()
+        if existing:
+            if existing.amount != amount or existing.phone_number != phone:
+                return Response({"error": "This idempotency key was already used with a different top-up request."}, status=409)
+            return self._payment_response(existing, reused=True)
+
+        # This check runs before saving a payment and before any provider call.
+        try:
+            ensure_mpesa_provider_access()
+        except ProductionProviderAccessDisabled as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
         setting = PlatformSettings.current()
         try:
             credits = credits_for_kes(amount, setting.credit_to_kes_rate, topup=True)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=400)
-        payment = MpesaPayment.objects.create(user=request.user, phone_number=phone, amount=amount,
-                                              credits_awarded=credits, conversion_rate=setting.credit_to_kes_rate,
-                                              callback_token=secrets.token_hex(32))
+
+        try:
+            with transaction.atomic():
+                # The unique constraint arbitrates duplicates before any STK call.
+                with transaction.atomic():
+                    payment = MpesaPayment.objects.create(
+                        user=request.user,
+                        idempotency_operation=operation,
+                        idempotency_key=idempotency_key,
+                        phone_number=phone,
+                        amount=amount,
+                        credits_awarded=credits,
+                        conversion_rate=setting.credit_to_kes_rate,
+                        callback_token=secrets.token_hex(32),
+                    )
+        except IntegrityError:
+            with transaction.atomic():
+                payment = MpesaPayment.objects.select_for_update().filter(
+                    user=request.user, idempotency_operation=operation, idempotency_key=idempotency_key,
+                ).first()
+            if payment is None:
+                raise
+            if payment.amount != amount or payment.phone_number != phone:
+                return Response({"error": "This idempotency key was already used with a different top-up request."}, status=409)
+            return self._payment_response(payment, reused=True)
+
         try:
             result = initiate_stk_push(phone, amount, f"PAIDLINK-{payment.pk}", "Paid Link credit top-up",
                                        callback_url=callback_url_with_token(settings.MPESA_CALLBACK_URL, payment.callback_token))
@@ -66,10 +116,7 @@ class InitiateMpesaPaymentView(APIView):
                         payment.result_description = "Provider response lacked ResponseCode; reconcile before retrying."
                 payment.save(update_fields=["merchant_request_id", "checkout_request_id", "result_code",
                                             "result_description", "status", "updated_at"])
-            return Response({"payment_id": payment.pk, "status": payment.status,
-                             "checkout_request_id": payment.checkout_request_id,
-                             "amount_kes": str(payment.amount), "credits_awarded": str(payment.credits_awarded),
-                             "conversion_rate": str(payment.conversion_rate)}, status=status.HTTP_201_CREATED)
+            return self._payment_response(payment, status_code=status.HTTP_201_CREATED)
         except Exception as exc:
             # An exception after submission may mean Safaricom accepted it.
             with transaction.atomic():
@@ -78,9 +125,18 @@ class InitiateMpesaPaymentView(APIView):
                     payment.status = "outcome_unknown"
                     payment.result_description = str(exc)[:2000]
                     payment.save(update_fields=["status", "result_description", "updated_at"])
-            return Response({"payment_id": payment.pk, "status": payment.status,
-                             "message": "Provider outcome requires reconciliation."},
-                            status=status.HTTP_202_ACCEPTED)
+            return self._payment_response(payment, message="Provider outcome requires reconciliation.",
+                                          status_code=status.HTTP_202_ACCEPTED)
+
+    @staticmethod
+    def _payment_response(payment, *, reused=False, message=None, status_code=status.HTTP_200_OK):
+        data = {"payment_id": payment.pk, "status": payment.status,
+                "checkout_request_id": payment.checkout_request_id,
+                "amount_kes": str(payment.amount), "credits_awarded": str(payment.credits_awarded),
+                "conversion_rate": str(payment.conversion_rate), "reused": reused}
+        if message:
+            data["message"] = message
+        return Response(data, status=status_code)
 
 
 class CreatorWithdrawalRequestView(APIView):

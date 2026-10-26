@@ -12,5 +12,5 @@ test('creates a v4 UUID from the secure random API on older browsers', () => {
 });
 
 test('fails safely when no cryptographically secure random source exists', () => {
-  assert.throws(() => createIdempotencyKey({}), /Secure credit adjustments/);
+  assert.throws(() => createIdempotencyKey({}), /Secure payment requests/);
 });

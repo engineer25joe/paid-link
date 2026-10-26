@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models import Q
 
 
 class MpesaPayment(models.Model):
@@ -18,6 +19,9 @@ class MpesaPayment(models.Model):
         blank=True,
         related_name="mpesa_payments",
     )
+    # Null for guest payments and historical rows; top-ups use scoped keys.
+    idempotency_operation = models.CharField(max_length=32, null=True, blank=True)
+    idempotency_key = models.CharField(max_length=36, null=True, blank=True)
     phone_number = models.CharField(max_length=20)
     amount = models.DecimalField(
         max_digits=12,
@@ -70,6 +74,11 @@ class MpesaPayment(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(
+            fields=["user", "idempotency_operation", "idempotency_key"],
+            condition=Q(user__isnull=False, idempotency_operation__isnull=False, idempotency_key__isnull=False),
+            name="unique_user_mpesa_operation_idempotency_key",
+        )]
 
     def save(self, *args, **kwargs):
         # Old internal fixtures/imports omit the new quote fields. Preserve the
