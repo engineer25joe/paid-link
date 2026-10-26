@@ -123,7 +123,9 @@ def initiate_stk_push(phone_number, amount, account_reference, transaction_descr
 @transaction.atomic
 def settle_mpesa_payment(payment_id, receipt, provider_data):
     """Settle only after the caller has independently verified the provider."""
-    payment = MpesaPayment.objects.select_for_update().select_related("user").get(pk=payment_id)
+    # Lock the payment row only; PostgreSQL rejects FOR UPDATE on the nullable
+    # user side of select_related's outer join for guest payment records.
+    payment = MpesaPayment.objects.select_for_update(of=("self",)).select_related("user").get(pk=payment_id)
     if payment.status == "completed":
         return payment
     if MpesaPayment.objects.filter(mpesa_receipt_number=receipt).exclude(pk=payment.pk).exists():
